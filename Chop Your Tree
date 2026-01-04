@@ -259,8 +259,8 @@ end
 
 -- TOGGLE
 local Toggle = Tab:Toggle({
-    Title = "Auto Tree Click",
-    Desc = "ตรวจสอบ Plot แล้วกด Tree อัตโนมัติ",
+    Title = "รดน้ำต้นไม้",
+    Desc = "",
     Icon = "bird",
     Type = "Checkbox",
     Value = false,
