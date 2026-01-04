@@ -229,3 +229,61 @@ local Toggle = Tab:Toggle({
         end
     end
 })
+
+
+
+
+
+
+
+
+
+
+-- SERVICES
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+
+-- VARIABLES
+local running = false
+local TreeClick = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("TreeClick")
+
+-- FUNCTION หา Plot ของผู้เล่น
+local function getMyPlot()
+    for _, plot in pairs(workspace:WaitForChild("Plots"):GetChildren()) do
+        if plot:GetAttribute("Plr") == player.Name then
+            return plot
+        end
+    end
+end
+
+-- TOGGLE
+local Toggle = Tab:Toggle({
+    Title = "Auto Tree Click",
+    Desc = "ตรวจสอบ Plot แล้วกด Tree อัตโนมัติ",
+    Icon = "bird",
+    Type = "Checkbox",
+    Value = false,
+    Callback = function(state)
+        running = state
+
+        if state then
+            task.spawn(function()
+                while running do
+                    local myPlot = getMyPlot()
+                    if myPlot then
+                        local tree = myPlot:FindFirstChild("PlotContents")
+                            and myPlot.PlotContents:FindFirstChild("Tree")
+
+                        if tree then
+                            pcall(function()
+                                TreeClick:InvokeServer(tree)
+                            end)
+                        end
+                    end
+                    task.wait(0.01)
+                end
+            end)
+        end
+    end
+})
