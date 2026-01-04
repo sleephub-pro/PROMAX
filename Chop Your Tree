@@ -102,7 +102,7 @@ end
 -- TOGGLE
 local Toggle = Tab:Toggle({
     Title = "ออโต้คลิก",
-    Desc = "ทำงานทุก 0.01 วินาที (เลือก Plot ของเรา)",
+    Desc = "",
     Icon = "bird",
     Type = "Checkbox",
     Value = false,
@@ -155,7 +155,7 @@ local OrbConnection
 
 local Toggle = Tab:Toggle({
     Title = "ออโต้เก็บเงิน",
-    Desc = "ดึง Orbs มาที่ตัว",
+    Desc = "",
     Icon = "bird",
     Type = "Checkbox",
     Value = false,
@@ -207,7 +207,7 @@ local axeSwingConnection = nil
 
 local Toggle = Tab:Toggle({
     Title = "ออโต้ตัดต้นไม้",
-    Desc = "Axe Swing Automation",
+    Desc = "",
     Icon = "bird",
     Type = "Checkbox",
     Value = false,
