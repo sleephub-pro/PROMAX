@@ -560,11 +560,124 @@ OverviewSection1:Toggle({
 
 
 
+OverviewSection1:Toggle({
+    Title = "ออโต้วางไข่",
+    Callback = function(Value)
+        getgenv().AutoEgg = Value
+        
+        if Value then
+            task.spawn(function()
+                local remote = game:GetService("ReplicatedStorage").Shared.Packages.Networker["RF/PlaceEgg"]
+                local player = game:GetService("Players").LocalPlayer
+                
+                -- ลูป 1 ถึง 50
+                for i = 1, 50 do
+                    if not getgenv().AutoEgg then break end
+                    
+                    local standName = "Stand" .. i
+                    local gearNames = {} -- เก็บชื่อของที่จะส่งไป Remote
+                    
+                    -- ตรวจสอบของใน StarterGear และสั่งให้ถือ
+                    if player:FindFirstChild("StarterGear") then
+                        local backpack = player:FindFirstChild("Backpack")
+                        local character = player.Character
+                        local humanoid = character and character:FindFirstChild("Humanoid")
+
+                        for _, tool in pairs(player.StarterGear:GetChildren()) do
+                            -- 1. เก็บชื่อเพื่อส่ง Remote
+                            table.insert(gearNames, tool.Name)
+                            
+                            -- 2. สั่งให้ถือของ (ต้องหาจาก Backpack เพราะ StarterGear ถือไม่ได้)
+                            if backpack and humanoid then
+                                local toolToEquip = backpack:FindFirstChild(tool.Name)
+                                if toolToEquip then
+                                    humanoid:EquipTool(toolToEquip) -- สั่งให้ถือทันที
+                                end
+                            end
+                        end
+                    end
+                    
+                    -- เตรียม Arguments
+                    local arguments = {
+                        [1] = standName,
+                        [2] = gearNames -- ส่งชื่อไฟล์ที่เจอ
+                    }
+
+                    -- ยิง Remote
+                    pcall(function()
+                        remote:InvokeServer(unpack(arguments))
+                    end)
+                    
+                    task.wait(1) 
+                end
+            end)
+        else
+            getgenv().AutoEgg = false
+            -- ถ้าอยากให้เลิกถือของเมื่อปิด Toggle ให้เพิ่มโค้ด UnequipTools ตรงนี้ได้
+             if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                 game.Players.LocalPlayer.Character.Humanoid:UnequipTools()
+             end
+        end
+    end
+})
 
 
 
 
 
+
+
+
+
+
+
+local RunService = game:GetService("RunService")
+local running = false
+
+OverviewSection1:Toggle({
+    Title = "ออโต้เปิดไข่",
+    Callback = function(v)
+        running = v
+
+        if v then
+            task.spawn(function()
+                while running do
+                    local standsFolder = workspace
+                        :WaitForChild("CoreObjects")
+                        :WaitForChild("Plots")
+                        :WaitForChild("Plot4")
+                        :WaitForChild("Stands")
+
+                    for i = 1, 50 do
+                        if not running then break end
+
+                        local stand = standsFolder:FindFirstChild("Stand"..i)
+                        if stand then
+                            -- หา Model ภายใน Stand
+                            for _, obj in ipairs(stand:GetChildren()) do
+                                if obj:IsA("Model") then
+                                    local args = {
+                                        stand.Name, -- ชื่อ Stand
+                                        obj.Name    -- ชื่อ Model
+                                    }
+
+                                    game:GetService("ReplicatedStorage")
+                                        :WaitForChild("Shared")
+                                        :WaitForChild("Packages")
+                                        :WaitForChild("Networker")
+                                        :WaitForChild("RE/HatchEgg")
+                                        :FireServer(unpack(args))
+                                end
+                            end
+                        end
+                    end
+
+                    task.wait(0.2) -- กันสแปม ปรับได้
+                end
+            end)
+        end
+    end
+})
 
 
 
