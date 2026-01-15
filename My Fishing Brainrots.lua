@@ -384,7 +384,7 @@ do
     local OverviewTab = ElementsSection:Tab({
         Title = "ออโต้ฟาร็ม",
         Icon = "solar:home-2-bold",
-        IconColor = Grey,
+        IconColor = Blue,
         IconShape = "Square",
     })
     
@@ -394,14 +394,10 @@ do
     
     local OverviewGroup3 = OverviewTab:Group({})
     
-    
-    local OverviewSection1 = OverviewGroup3:Section({
-        Title = "",
-        Desc = "",
-        Box = true,
-        BoxBorder = true,
-        Opened = true,
+    local OverviewSection2 = OverviewTab:Section({
+        Title = "ออโต้ซื้อไข่"
     })
+
 
 
 
@@ -446,7 +442,7 @@ local function getFullName()
 end
 
 -- 1. ส่วนสำหรับเลือกประเภทบัพ (Buff Selector)
-OverviewSection1:Dropdown({
+OverviewSection2:Dropdown({
     Title = "เลือกบัพ",
     Values = {"Normal", "Gold", "Diamond"},
     Value = "Normal",
@@ -457,7 +453,7 @@ OverviewSection1:Dropdown({
 })
 
 -- 2. ส่วนสำหรับเลือกรายชื่อ (Item Selector)
-OverviewSection1:Dropdown({
+OverviewSection2:Dropdown({
     Title = "เลือกไข่",
     Values = normalItems,
     Value = nil,
@@ -470,7 +466,7 @@ OverviewSection1:Dropdown({
 })
 
 --- 4. ปุ่มสำหรับ Request Spawn + Buy (ทำงานวนลูป)
-OverviewSection1:Toggle({ 
+OverviewSection2:Toggle({ 
     Title = "ออโต้สเปา/ออโต้ชื่อ",  
     Callback = function(v) 
         autoSpawn = v
@@ -678,6 +674,92 @@ OverviewSection1:Toggle({
         end
     end
 })
+
+
+
+
+
+
+
+
+
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlotsFolder = Workspace:WaitForChild("CoreObjects"):WaitForChild("Plots")
+
+-- ตัวแปรสำหรับควบคุมลูป
+local isAutoSelling = false
+
+-- ฟังก์ชันค้นหา Plot ของเรา
+local function getMyPlot()
+    for _, plot in ipairs(PlotsFolder:GetChildren()) do
+        -- ตรวจสอบ Attribute "Owner" ว่าตรงกับชื่อ หรือ UserId ของเราไหม
+        local owner = plot:GetAttribute("Owner")
+        
+        -- ตรวจสอบทั้ง Username และ UserId เพื่อความชัวร์
+        if owner == LocalPlayer.Name or owner == LocalPlayer.UserId or owner == tostring(LocalPlayer.UserId) then
+            return plot
+        end
+    end
+    return nil
+end
+
+OverviewSection1:Toggle({
+    Title = "Auto Pickup & Sell (0.01s)",
+    Callback = function(v)
+        isAutoSelling = v
+        
+        if v then
+            -- เริ่มการทำงาน Loop แบบแยก Thread (task.spawn)
+            task.spawn(function()
+                while isAutoSelling do
+                    local myPlot = getMyPlot()
+
+                    if myPlot then
+                        -- 1. ยิง Remote PickupBoxes
+                        local remote = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Networker"):WaitForChild("RE/PickupBoxes")
+                        if remote then
+                            remote:FireServer()
+                        end
+
+                        -- หาตำแหน่ง SellPrompt ใน Plot ของเรา
+                        local sellPromptPart = myPlot:FindFirstChild("SellPrompt")
+                        
+                        if sellPromptPart then
+                            -- 2. วาป (Teleport) ไปที่ SellPrompt
+                            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                                LocalPlayer.Character.HumanoidRootPart.CFrame = sellPromptPart.CFrame * CFrame.new(0, 3, 0) -- ลอยเหนือจุดนิดหน่อยกันบัค
+                            end
+
+                            -- 3. กด ProximityPrompt (ต้องใช้ Executor ที่รองรับ fireproximityprompt)
+                            local prompt = sellPromptPart:FindFirstChild("ProximityPrompt")
+                            if prompt then
+                                fireproximityprompt(prompt)
+                            end
+                        else
+                            warn("หา SellPrompt ใน Plot ไม่เจอ")
+                        end
+                    else
+                        warn("หา Plot ของคุณไม่เจอ! กรุณา Claim Plot ก่อน")
+                    end
+
+                    -- รอ 0.01 วินาทีตามที่ขอ
+                    task.wait(0.01)
+                end
+            end)
+        end
+    end
+})
+
+
+
+
+
 
 
 
