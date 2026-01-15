@@ -411,83 +411,106 @@ do
 
 
 
--- รายชื่อพื้นฐาน (Normal List)
-local normalItems = {
-    "67", "Admin Egg", "Avocadini Guffo", "Bissonte Giuppitere", "Blingo Tentacolo", 
-    "Boneca Ambalabu", "Brr Brr Patapim", "Buff Egg", "Cacto Hipopotamo", "Capuchina Ballerina", 
-    "Capuchino Assasino", "Chef Crabracadabra", "Chicleteira Bicicleteira", "Chillin Chilli", 
-    "Crabbo Limonetta", "Crystalini Ananassini", "Dragon Cannelloni", "Elf Elf Sahur", 
-    "Esok Sekolah", "Eviledon", "Festive Lucky Block", "Fluriflura", "Friggo Camelo", 
-    "Ganganzelli Trulala", "Ginger 67", "Ginger Sekolah", "Girafa Celestre", "Gorillo Watermelondrillo", 
-    "Job Job Sahur", "Ketupat Kepat", "La Grande Combination", "La Vacca Saturnita", "Matteo", 
-    "Meowl", "Orangutini Ananasini", "Orcadon", "Pakrahmatmamat", "Pipi Kiwi", "Pipi Potato", 
-    "Pot Hotspot", "Quivioli Ameleonni", "Salamino Penguino", "Santa Hotspot", "Sigma Boy", 
-    "Spiuniru Golubiru", "Strawberelli Flamingelli", "Strawberry Elephant", "Swag Soda", 
-    "Taco Block", "Tic Tac Sahur", "Tim Cheese", "Tralalelodon", "Tric Trac Barabum", 
-    "Tung Tung Sahur", "Udin Din Din Din Dun"
+-- จัดเตรียมข้อมูลแยกหมวดหมู่
+local itemRarity = {
+    ["Common"] = {"Tic Tac Sahur", "Capuchino Assasino"},
+    ["Uncommon"] = {"Pipi Potato", "Capuchina Ballerina"},
+    ["Rare"] = {"Salamino Penguino", "Fluriflura", "Tim Cheese"},
+    ["Epic"] = {"Orangutini Ananasini", "Brr Brr Patapim", "Udin Din Din Din Dun", "Pipi Kiwi"},
+    ["Legendary"] = {"Chef Crabracadabra", "Boneca Ambalabu", "Cacto Hipopotamo", "Sigma Boy"},
+    ["XMAS 25"] = {"Ginger Sekolah", "67", "Elf Elf Sahur", "Santa Hotspot"},
+    ["Mythic"] = {"Gorillo Watermelondrillo", "Tric Trac Barabum", "Avocadini Guffo", "Quivioli Ameleonni", "Friggo Camelo", "Pakrahmatmamat"},
+    ["Secret"] = {"La Vacca Saturnita", "Tic Tac Sahur", "Pot Hotspot", "Job Job Sahur", "La Grande Combination"},
+    ["Exotic"] = {"67", "Esok Sekolah", "Girafa Celestre", "Chillin Chilli", "Swag Soda", "Matteo", "Strawberelli Flamingelli", "Ketupat Kepat"},
+    ["Event"] = {"Taco Block", "Tralalelodon", "Orcadon", "Blingo Tentacolo", "Eviledon"},
+    ["OG"] = {"Ganganzelli Trulala", "Strawberry Elephant", "Crystalini Ananassini", "Meowl", "Spiuniru Golubiru"},
+    ["Divine"] = {"Dragon Cannelloni", "Chicleteira Bicicleteira", "Crabbo Limonetta"},
+    ["Admin"] = {"Admin Egg"}
 }
 
-local selectedBaseName = ""
-local selectedBuff = "Normal" -- ค่าเริ่มต้นคือปกติ
-local autoBuy = false
+-- ตัวแปรสถานะ
+local selectedItems = {} -- เก็บค่าเป็น Table สำหรับ Multi-select
+local selectedBuff = "Normal"
 local autoSpawn = false
 
--- ฟังก์ชันสำหรับรวมชื่อ (เช่น Gold + Blingo Tentacolo)
-local function getFullName()
-    if selectedBuff == "Normal" then
-        return selectedBaseName
-    else
-        return selectedBuff .. " " .. selectedBaseName
-    end
-end
+-- ตัวแปรอ้างอิง Dropdown ไข่ (เพื่อใช้สั่ง Refresh)
+local EggDropdown
 
--- 1. ส่วนสำหรับเลือกประเภทบัพ (Buff Selector)
+--- [ 1. Dropdown เลือกระดับ ] ---
+OverviewSection2:Dropdown({
+    Title = "เลือกระดับ (Rarity)",
+    Values = {"Common","Uncommon","Rare","Epic","Legendary","XMAS 25","Mythic","Secret","Exotic","Event","OG","Divine","Admin"},
+    Value = 1,
+    Callback = function(v)
+        -- ดึงรายชื่อตามระดับที่เลือก
+        local newItems = itemRarity[v] or {}
+        -- อัปเดต Dropdown อันที่สอง (Refresh)
+        if EggDropdown then
+            EggDropdown:Refresh(newItems, true)
+            selectedItems = {} -- ล้างค่าที่เคยเลือกไว้เมื่อเปลี่ยนระดับ
+        end
+        print("Switched to rarity: " .. v)
+    end
+})
+
+--- [ 2. Dropdown เลือกบัพ ] ---
 OverviewSection2:Dropdown({
     Title = "เลือกบัพ",
     Values = {"Normal", "Gold", "Diamond"},
     Value = "Normal",
     Callback = function(v)
         selectedBuff = v
-        print("Current Buff Mode: " .. selectedBuff)
     end
 })
 
--- 2. ส่วนสำหรับเลือกรายชื่อ (Item Selector)
-OverviewSection2:Dropdown({
-    Title = "เลือกไข่",
-    Values = normalItems,
+--- [ 3. Dropdown รายชื่อไข่ (ตัวรับข้อมูลจาก Rarity) ] ---
+EggDropdown = OverviewSection2:Dropdown({
+    Title = "เลือกไข่ (เลือกได้หลายอย่าง)",
+    Values = itemRarity["Common"], -- ค่าเริ่มต้น (Common)
     Value = nil,
-    AllowNone = true,
-    Multi = false,
+    Multi = true, -- สำคัญ: ทำให้เลือกได้หลายชื่อ
     Callback = function(v)
-        selectedBaseName = v
-        print("Selected Base Item: " .. v)
+        selectedItems = v -- v จะเป็น Table เช่น {"67", "Matteo"}
     end
 })
 
---- 4. ปุ่มสำหรับ Request Spawn + Buy (ทำงานวนลูป)
+--- [ 4. ระบบ Auto Spawn & Buy ] ---
 OverviewSection2:Toggle({ 
-    Title = "ออโต้สเปา/ออโต้ชื่อ",  
+    Title = "ออโต้สเปา/ออโต้ซื้อตามที่เลือก",  
     Callback = function(v) 
         autoSpawn = v
-        task.spawn(function()
-            local remoteSpawn = game:GetService("ReplicatedStorage").Shared.Packages.Networker["RF/RequestEggSpawn"]
-            local remoteBuy = game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Networker"):WaitForChild("RF/BuyEgg")
-            
-            while autoSpawn do
-                local itemName = getFullName()
-                if itemName ~= "" then
-                    -- ทำการ Request Spawn
-                    remoteSpawn:InvokeServer()
-                    
-                    -- ทำการซื้อ
-                    local args = { itemName, 1 }
-                    remoteBuy:InvokeServer(unpack(args))
+        if autoSpawn then
+            task.spawn(function()
+                local RS = game:GetService("ReplicatedStorage")
+                local remoteSpawn = RS.Shared.Packages.Networker["RF/RequestEggSpawn"]
+                local remoteBuy = RS:WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Networker"):WaitForChild("RF/BuyEgg")
+                
+                while autoSpawn do
+                    -- ตรวจสอบว่ามีการเลือกไข่ไว้อย่างน้อย 1 อย่างไหม
+                    if #selectedItems > 0 then
+                        for _, baseName in pairs(selectedItems) do
+                            if not autoSpawn then break end
+                            
+                            -- รวมชื่อบัพกับชื่อไข่
+                            local fullName = (selectedBuff == "Normal") and baseName or (selectedBuff .. " " .. baseName)
+                            
+                            -- สั่ง Spawn และ ซื้อ
+                            pcall(function()
+                                remoteSpawn:InvokeServer()
+                                remoteBuy:InvokeServer(fullName, 1)
+                            end)
+                            
+                            task.wait(0.05) -- ความเร็วในการซื้อแต่ละชนิด
+                        end
+                    else
+                        -- ถ้าไม่ได้เลือกไข่เลย ให้รอ
+                        task.wait(0.01)
+                    end
+                    task.wait(0.1)
                 end
-                task.wait(0.1)
-            end
-        end)
-    end 
+            end)
+        end
+    end  
 })
 
 
@@ -497,9 +520,11 @@ OverviewSection2:Toggle({
 
 
 
--- เก็บค่าที่เลือกจาก Dropdown
-local SelectedStand = "Stand1"
+
+-- เก็บ Stand ที่เลือก (หลายค่า)
+local SelectedStands = {}
 local Running = false
+local UpgradeThread = nil
 
 -- Remote
 local remote = game:GetService("ReplicatedStorage")
@@ -507,7 +532,7 @@ local remote = game:GetService("ReplicatedStorage")
     .Packages
     .Networker["RF/UpgradeBrainrot"]
 
--- Dropdown เลือก Stand
+-- Dropdown เลือกหลาย Stand
 OverviewSection1:Dropdown({
     Title = "เลือกช่องที่จะอัพเกรด",
     Values = (function()
@@ -517,33 +542,33 @@ OverviewSection1:Dropdown({
         end
         return t
     end)(),
-    Value = "Stand1",
-    Callback = function(selectedValue)
-        SelectedStand = selectedValue
-        print("Selected:", SelectedStand)
+    Value = { "Stand1" },
+    Multi = true,
+    AllowNone = false,
+    Callback = function(values)
+        SelectedStands = values
+        print("Selected Stands:", table.concat(SelectedStands, ", "))
     end
 })
 
--- Toggle เปิด/ปิดการทำงานซ้ำ
+-- Toggle เปิด/ปิดออโต้
 OverviewSection1:Toggle({
     Title = "ออโต้อัพเกรด",
     Value = false,
     Callback = function(v)
         Running = v
 
-        if v then
-            task.spawn(function()
+        if v and not UpgradeThread then
+            UpgradeThread = task.spawn(function()
                 while Running do
-                    local args = {
-                        [1] = SelectedStand
-                    }
-
-                    pcall(function()
-                        remote:InvokeServer(unpack(args))
-                    end)
-
-                    task.wait(0.1) -- ปรับความเร็วได้ (ยิ่งต่ำยิ่งถี่)
+                    for _, standName in ipairs(SelectedStands) do
+                        pcall(function()
+                            remote:InvokeServer(standName)
+                        end)
+                    end
+                    task.wait(0.1) -- ปรับความเร็วได้
                 end
+                UpgradeThread = nil
             end)
         end
     end
@@ -627,7 +652,10 @@ OverviewSection1:Toggle({
 
 
 
-local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
 local running = false
 
 OverviewSection1:Toggle({
@@ -635,45 +663,52 @@ OverviewSection1:Toggle({
     Callback = function(v)
         running = v
 
-        if v then
-            task.spawn(function()
-                while running do
-                    local standsFolder = workspace
-                        :WaitForChild("CoreObjects")
-                        :WaitForChild("Plots")
-                        :WaitForChild("Plot4")
-                        :WaitForChild("Stands")
+        task.spawn(function()
+            while running do
+                local plotsFolder = workspace:WaitForChild("CoreObjects"):WaitForChild("Plots")
 
-                    for i = 1, 50 do
-                        if not running then break end
+                for _, plot in ipairs(plotsFolder:GetChildren()) do
+                    if not running then break end
 
-                        local stand = standsFolder:FindFirstChild("Stand"..i)
-                        if stand then
-                            -- หา Model ภายใน Stand
-                            for _, obj in ipairs(stand:GetChildren()) do
-                                if obj:IsA("Model") then
-                                    local args = {
-                                        stand.Name, -- ชื่อ Stand
-                                        obj.Name    -- ชื่อ Model
-                                    }
+                    local owner = plot:GetAttribute("Owner")
+                    if owner == player.Name then
+                        local standsFolder = plot:FindFirstChild("Stands")
+                        if standsFolder then
+                            for _, stand in ipairs(standsFolder:GetChildren()) do
+                                if not running then break end
 
-                                    game:GetService("ReplicatedStorage")
-                                        :WaitForChild("Shared")
-                                        :WaitForChild("Packages")
-                                        :WaitForChild("Networker")
-                                        :WaitForChild("RE/HatchEgg")
-                                        :FireServer(unpack(args))
+                                -- ตรวจว่าเป็น Stand1 - Stand50
+                                if stand:IsA("Model") then
+                                    for _, obj in ipairs(stand:GetChildren()) do
+                                        if obj:IsA("Model") then
+                                            local args = {
+                                                stand.Name, -- ชื่อ Stand ที่เจอ Model
+                                                obj.Name    -- ชื่อ Model ที่อยู่ข้างใน
+                                            }
+
+                                            ReplicatedStorage
+                                                :WaitForChild("Shared")
+                                                :WaitForChild("Packages")
+                                                :WaitForChild("Networker")
+                                                :WaitForChild("RE/HatchEgg")
+                                                :FireServer(unpack(args))
+                                        end
+                                    end
                                 end
                             end
                         end
                     end
-
-                    task.wait(0.2) -- กันสแปม ปรับได้
                 end
-            end)
-        end
+
+                task.wait(0.5) -- ปรับความเร็วได้
+            end
+        end)
     end
 })
+
+
+
+
 
 
 
@@ -710,7 +745,7 @@ local function getMyPlot()
 end
 
 OverviewSection1:Toggle({
-    Title = "Auto Pickup & Sell (0.01s)",
+    Title = "ออโต้ขาย",
     Callback = function(v)
         isAutoSelling = v
         
@@ -755,6 +790,17 @@ OverviewSection1:Toggle({
         end
     end
 })
+
+
+
+
+
+
+
+
+
+
+
 
 
 
