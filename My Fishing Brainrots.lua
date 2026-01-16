@@ -398,7 +398,9 @@ do
         Title = "ออโต้ซื้อไข่"
     })
 
-
+    local OverviewSection3 = OverviewTab:Section({
+        Title = "ออโต้ซื้อไข่"
+    })
 
 
 
@@ -629,7 +631,7 @@ OverviewSection1:Toggle({
                         remote:InvokeServer(unpack(arguments))
                     end)
                     
-                    task.wait(1) 
+                    task.wait(0.01) 
                 end
             end)
         else
@@ -801,7 +803,104 @@ OverviewSection1:Toggle({
 
 
 
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
 
+-- ตัวแปรตั้งค่า
+local thresholdValue = 0
+local isRunning = false
+
+-- ฟังก์ชันสำหรับแปลงข้อความ เช่น "$500 / Fish" หรือ "1.2K" ให้เป็นตัวเลข
+local function parseMultiplier(text)
+    -- ดึงตัวเลขที่อยู่หลัง $ และก่อน /
+    local cleaned = text:match("%$(%d+%.?%d*[KMB]?)") or text:match("(%d+%.?%d*[KMB]?)")
+    if not cleaned then return 0 end
+    
+    cleaned = cleaned:upper()
+    local num = tonumber(cleaned:match("[%d%.]+")) or 0
+    
+    if cleaned:find("K") then num = num * 1000
+    elseif cleaned:find("M") then num = num * 1000000
+    elseif cleaned:find("B") then num = num * 1000000000 end
+    
+    return num
+end
+
+-- ฟังก์ชันหา Plot ของเรา
+local function getMyPlot()
+    for _, plot in ipairs(workspace.CoreObjects.Plots:GetChildren()) do
+        -- ตรวจสอบ Owner ใน Attributes
+        if plot:GetAttribute("Owner") == LocalPlayer.Name then
+            return plot
+        end
+    end
+    return nil
+end
+
+-- ฟังก์ชันหลักในการตรวจสอบและรัน Remote
+local function checkStands()
+    local myPlot = getMyPlot()
+    if not myPlot or not myPlot:FindFirstChild("Stands") then return end
+
+    for _, standFolder in ipairs(myPlot.Stands:GetChildren()) do
+        -- หา Model ภายใน Stand Folder
+        for _, model in ipairs(standFolder:GetChildren()) do
+            if model:IsA("Model") then
+                local multiplierPath = model:FindFirstChild("HumanoidRootPart") 
+                    and model.HumanoidRootPart:FindFirstChild("BrainrotBillboard")
+                    and model.HumanoidRootPart.BrainrotBillboard:FindFirstChild("Multiplier")
+
+                if multiplierPath and multiplierPath:IsA("TextLabel") then
+                    local currentVal = parseMultiplier(multiplierPath.Text)
+                    
+                    -- เงื่อนไข: ถ้าค่าน้อยกว่าที่กำหนด
+                    if currentVal < thresholdValue then
+                        -- เตรียมข้อมูลส่งเข้า Remote (ตามตัวอย่างที่คุณให้มา)
+                        local remote = ReplicatedStorage:WaitForChild("Shared")
+                                        :WaitForChild("Packages")
+                                        :WaitForChild("Networker")
+                                        :WaitForChild("RE/PickupBrainrot")
+                        
+                        local args = { standFolder.Name } -- เช่น "Stand4"
+                        remote:FireServer(unpack(args))
+                        
+                        print("🔥 Pickup: " .. standFolder.Name .. " | Value: " .. currentVal)
+                    end
+                end
+            end
+        end
+    end
+end
+
+--- ส่วนการเชื่อมต่อกับ UI ของคุณ ---
+
+OverviewSection3:Input({
+    Title = "ใส่ตัวเลขที่ต้องการเอาออก (เช่น 500 หรือ 1K)",
+    Icon = "mouse",
+    Callback = function(v)
+        thresholdValue = parseMultiplier(v)
+        print("✅ ตั้งค่าขีดจำกัดไว้ที่: " .. thresholdValue)
+    end
+})
+
+OverviewSection3:Toggle({ 
+    Title = "เอาออกออโต้", 
+    Callback = function(v) 
+        isRunning = v
+        if isRunning then
+            print("🚀 เริ่มระบบตรวจสอบ...")
+            task.spawn(function()
+                while isRunning do
+                    checkStands()
+                    task.wait(1) -- ตรวจสอบทุก 1 วินาที (ปรับเปลี่ยนได้)
+                end
+            end)
+        else
+            print("🛑 หยุดระบบตรวจสอบ")
+        end
+    end 
+})
 
 
 
