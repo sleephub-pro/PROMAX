@@ -399,7 +399,7 @@ do
     })
 
     local OverviewSection3 = OverviewTab:Section({
-        Title = "ออโต้ซื้อไข่"
+        Title = "ออโต้เก็บสัตว์"
     })
 
 
@@ -413,7 +413,10 @@ do
 
 
 
--- จัดเตรียมข้อมูลแยกหมวดหมู่
+-- ===================== SERVICES =====================
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- ===================== DATA =====================
 local itemRarity = {
     ["Common"] = {"Tic Tac Sahur", "Capuchino Assasino"},
     ["Uncommon"] = {"Pipi Potato", "Capuchina Ballerina"},
@@ -430,90 +433,96 @@ local itemRarity = {
     ["Admin"] = {"Admin Egg"}
 }
 
--- ตัวแปรสถานะ
-local selectedItems = {} -- เก็บค่าเป็น Table สำหรับ Multi-select
-local selectedBuff = "Normal"
-local autoSpawn = false
-
--- ตัวแปรอ้างอิง Dropdown ไข่ (เพื่อใช้สั่ง Refresh)
+-- ===================== STATE =====================
+local selectedRarity = {}
+local selectedBuff = nil      -- nil / "Gold" / "Diamond"
+local selectedItems = {}
+local running = false
 local EggDropdown
 
---- [ 1. Dropdown เลือกระดับ ] ---
+-- ===================== FUNCTIONS =====================
+local function buildEggList()
+    local list = {}
+    for _, rarity in ipairs(selectedRarity) do
+        local items = itemRarity[rarity]
+        if items then
+            for _, name in ipairs(items) do
+                if selectedBuff then
+                    table.insert(list, selectedBuff .. " " .. name)
+                else
+                    table.insert(list, name)
+                end
+            end
+        end
+    end
+    return list
+end
+
+-- ===================== UI =====================
+
+-- เลือก Rarity
 OverviewSection2:Dropdown({
     Title = "เลือกระดับ (Rarity)",
     Values = {"Common","Uncommon","Rare","Epic","Legendary","XMAS 25","Mythic","Secret","Exotic","Event","OG","Divine","Admin"},
-    Value = 1,
+    Multi = true,
     Callback = function(v)
-        -- ดึงรายชื่อตามระดับที่เลือก
-        local newItems = itemRarity[v] or {}
-        -- อัปเดต Dropdown อันที่สอง (Refresh)
+        selectedRarity = v
+        selectedItems = {}
         if EggDropdown then
-            EggDropdown:Refresh(newItems, true)
-            selectedItems = {} -- ล้างค่าที่เคยเลือกไว้เมื่อเปลี่ยนระดับ
+            EggDropdown:Refresh(buildEggList(), true)
         end
-        print("Switched to rarity: " .. v)
     end
 })
 
---- [ 2. Dropdown เลือกบัพ ] ---
+-- เลือกบัพ (ไม่เลือก = ปกติ)
 OverviewSection2:Dropdown({
     Title = "เลือกบัพ",
-    Values = {"Normal", "Gold", "Diamond"},
-    Value = "Normal",
+    Values = {"Gold","Diamond"},
+    AllowNone = true,
+    Multi = false,
     Callback = function(v)
         selectedBuff = v
-    end
-})
-
---- [ 3. Dropdown รายชื่อไข่ (ตัวรับข้อมูลจาก Rarity) ] ---
-EggDropdown = OverviewSection2:Dropdown({
-    Title = "เลือกไข่ (เลือกได้หลายอย่าง)",
-    Values = itemRarity["Common"], -- ค่าเริ่มต้น (Common)
-    Value = nil,
-    Multi = true, -- สำคัญ: ทำให้เลือกได้หลายชื่อ
-    Callback = function(v)
-        selectedItems = v -- v จะเป็น Table เช่น {"67", "Matteo"}
-    end
-})
-
---- [ 4. ระบบ Auto Spawn & Buy ] ---
-OverviewSection2:Toggle({ 
-    Title = "ออโต้สเปา/ออโต้ซื้อตามที่เลือก",  
-    Callback = function(v) 
-        autoSpawn = v
-        if autoSpawn then
-            task.spawn(function()
-                local RS = game:GetService("ReplicatedStorage")
-                local remoteSpawn = RS.Shared.Packages.Networker["RF/RequestEggSpawn"]
-                local remoteBuy = RS:WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Networker"):WaitForChild("RF/BuyEgg")
-                
-                while autoSpawn do
-                    -- ตรวจสอบว่ามีการเลือกไข่ไว้อย่างน้อย 1 อย่างไหม
-                    if #selectedItems > 0 then
-                        for _, baseName in pairs(selectedItems) do
-                            if not autoSpawn then break end
-                            
-                            -- รวมชื่อบัพกับชื่อไข่
-                            local fullName = (selectedBuff == "Normal") and baseName or (selectedBuff .. " " .. baseName)
-                            
-                            -- สั่ง Spawn และ ซื้อ
-                            pcall(function()
-                                remoteSpawn:InvokeServer()
-                                remoteBuy:InvokeServer(fullName, 1)
-                            end)
-                            
-                            task.wait(0.05) -- ความเร็วในการซื้อแต่ละชนิด
-                        end
-                    else
-                        -- ถ้าไม่ได้เลือกไข่เลย ให้รอ
-                        task.wait(0.01)
-                    end
-                    task.wait(0.1)
-                end
-            end)
+        if EggDropdown then
+            EggDropdown:Refresh(buildEggList(), true)
         end
-    end  
+    end
 })
+
+-- รายชื่อไข่
+EggDropdown = OverviewSection2:Dropdown({
+    Title = "Multi Dropdown",
+    Values = {},
+    AllowNone = true,
+    Multi = true,
+    Callback = function(v)
+        selectedItems = v
+    end
+})
+
+-- ===================== AUTO BUY =====================
+OverviewSection2:Toggle({
+    Title = "Auto Buy Egg",
+    Callback = function(v)
+        running = v
+
+        task.spawn(function()
+            local remoteSpawn = ReplicatedStorage.Shared.Packages.Networker["RF/RequestEggSpawn"]
+            local remoteBuy = ReplicatedStorage.Shared.Packages.Networker["RF/BuyEgg"]
+
+            while running do
+                pcall(function()
+                    remoteSpawn:InvokeServer()
+                    for _, eggName in ipairs(selectedItems) do
+                        remoteBuy:InvokeServer(eggName, 1)
+                    end
+                end)
+                task.wait(0.2)
+            end
+        end)
+    end
+})
+
+
 
 
 
@@ -583,66 +592,108 @@ OverviewSection1:Toggle({
 
 
 
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+local running = false
+
+local function getMyPlot()
+	for _, plot in ipairs(workspace.CoreObjects.Plots:GetChildren()) do
+		local owner = plot:GetAttribute("Owner")
+		if owner == LocalPlayer.Name then
+			return plot
+		end
+	end
+end
+
+local function getNumberFromStand(name)
+	return tonumber(name:match("%d+"))
+end
+
+local function getValidStand(plot)
+	local standsFolder = plot:FindFirstChild("Stands")
+	if not standsFolder then return nil end
+
+	local stands = {}
+
+	for _, stand in ipairs(standsFolder:GetChildren()) do
+		if stand.Name:match("^Stand%d+$") then
+			table.insert(stands, stand)
+		end
+	end
+
+	table.sort(stands, function(a, b)
+		return getNumberFromStand(a.Name) < getNumberFromStand(b.Name)
+	end)
+
+	for _, stand in ipairs(stands) do
+		-- ❌ ถ้ามี Model อยู่แล้ว ข้าม
+		if stand:FindFirstChildWhichIsA("Model") then
+			continue
+		end
+
+		local dock = stand:FindFirstChild("Models")
+			and stand.Models:FindFirstChild("Dock")
+
+		-- ถ้าเจอ StandHighlight ให้หยุดทันที (Stand ต่อไปไม่เอา)
+		if dock and dock:FindFirstChild("StandHighlight") then
+			break
+		end
+
+		return stand
+	end
+end
+
+local function getToolWithItem()
+	for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
+		if tool:IsA("Tool") and #tool:GetChildren() > 0 then
+			return tool
+		end
+	end
+end
+
 OverviewSection1:Toggle({
-    Title = "ออโต้วางไข่",
-    Callback = function(Value)
-        getgenv().AutoEgg = Value
-        
-        if Value then
-            task.spawn(function()
-                local remote = game:GetService("ReplicatedStorage").Shared.Packages.Networker["RF/PlaceEgg"]
-                local player = game:GetService("Players").LocalPlayer
-                
-                -- ลูป 1 ถึง 50
-                for i = 1, 50 do
-                    if not getgenv().AutoEgg then break end
-                    
-                    local standName = "Stand" .. i
-                    local gearNames = {} -- เก็บชื่อของที่จะส่งไป Remote
-                    
-                    -- ตรวจสอบของใน StarterGear และสั่งให้ถือ
-                    if player:FindFirstChild("StarterGear") then
-                        local backpack = player:FindFirstChild("Backpack")
-                        local character = player.Character
-                        local humanoid = character and character:FindFirstChild("Humanoid")
+	Title = "ออโต้วางไข่",
+	Callback = function(v)
+		running = v
 
-                        for _, tool in pairs(player.StarterGear:GetChildren()) do
-                            -- 1. เก็บชื่อเพื่อส่ง Remote
-                            table.insert(gearNames, tool.Name)
-                            
-                            -- 2. สั่งให้ถือของ (ต้องหาจาก Backpack เพราะ StarterGear ถือไม่ได้)
-                            if backpack and humanoid then
-                                local toolToEquip = backpack:FindFirstChild(tool.Name)
-                                if toolToEquip then
-                                    humanoid:EquipTool(toolToEquip) -- สั่งให้ถือทันที
-                                end
-                            end
-                        end
-                    end
-                    
-                    -- เตรียม Arguments
-                    local arguments = {
-                        [1] = standName,
-                        [2] = gearNames -- ส่งชื่อไฟล์ที่เจอ
-                    }
+		task.spawn(function()
+			while running do
+				local plot = getMyPlot()
+				if plot then
+					local stand = getValidStand(plot)
+					local tool = getToolWithItem()
 
-                    -- ยิง Remote
-                    pcall(function()
-                        remote:InvokeServer(unpack(arguments))
-                    end)
-                    
-                    task.wait(0.01) 
-                end
-            end)
-        else
-            getgenv().AutoEgg = false
-            -- ถ้าอยากให้เลิกถือของเมื่อปิด Toggle ให้เพิ่มโค้ด UnequipTools ตรงนี้ได้
-             if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
-                 game.Players.LocalPlayer.Character.Humanoid:UnequipTools()
-             end
-        end
-    end
+					if stand and tool then
+						-- Equip Tool
+						tool.Parent = LocalPlayer.Character
+
+						local args = {
+							stand.Name,
+							tool.Name
+						}
+
+						ReplicatedStorage
+							:WaitForChild("Shared")
+							:WaitForChild("Packages")
+							:WaitForChild("Networker")
+							:WaitForChild("RF/PlaceEgg")
+							:InvokeServer(unpack(args))
+					end
+				end
+
+				task.wait(0.1)
+			end
+		end)
+	end
 })
+
+
+
+
+
+
 
 
 
