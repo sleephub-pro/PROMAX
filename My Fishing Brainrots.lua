@@ -401,7 +401,9 @@ do
     local OverviewSection3 = OverviewTab:Section({
         Title = "ออโต้เก็บสัตว์"
     })
-
+    local OverviewSection4 = OverviewTab:Section({
+        Title = "ร้านค้าอาหาร"
+    })
 
 
 
@@ -954,6 +956,233 @@ OverviewSection3:Toggle({
 })
 
 
+
+
+
+
+
+
+
+-- LocalScript (ตัวอย่างใช้ร่วมกับ OverviewSection1:Toggle)
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+-- ปรับได้ถ้าตำแหน่งอื่น
+local function getShopContent()
+    local playerGui = LocalPlayer:WaitForChild("PlayerGui", 5)
+    if not playerGui then return nil end
+    local main = playerGui:FindFirstChild("Main")
+    if not main then return nil end
+    local frames = main:FindFirstChild("Frames")
+    if not frames then return nil end
+    local food = frames:FindFirstChild("FoodMerchant")
+    if not food then return nil end
+    local shop = food:FindFirstChild("ShopContent")
+    return shop
+end
+
+-- helper: หาเลขจากข้อความรูปแบบ "x<number>" (เช่น "x1", "x10")
+local function parseXCountFromText(txt)
+    if type(txt) ~= "string" then return nil end
+    local n = txt:match("x(%d+)")
+    if n then
+        return tonumber(n)
+    end
+    return nil
+end
+
+-- ตรวจสอบแต่ละ Frame ว่ามี stock (x1+) หรือไม่
+local function frameHasStock(frame)
+    -- มองหา descendant ที่เป็น TextLabel / TextButton / TextBox แล้วตรวจข้อความ
+    for _, desc in ipairs(frame:GetDescendants()) do
+        if desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("TextBox") then
+            local ok, txt = pcall(function() return desc.Text end)
+            if ok and type(txt) == "string" then
+                local num = parseXCountFromText(txt)
+                if num and num > 0 then
+                    return true, num
+                elseif num and num == 0 then
+                    -- เจอ explicit x0 -> บอกว่าไม่มีที่จุดนี้ แต่อาจมีที่อื่น
+                end
+            end
+        end
+    end
+    return false, 0
+end
+
+-- remote lookup (ตาม path ที่ผู้ใช้ให้มา)
+local function getBuyRemote()
+    local ok, shared = pcall(function()
+        return ReplicatedStorage:WaitForChild("Shared",5)
+    end)
+    if not ok or not shared then return nil end
+    local ok2, packages = pcall(function() return shared:WaitForChild("Packages",5) end)
+    if not ok2 or not packages then return nil end
+    local networker = packages:FindFirstChild("Networker")
+    if not networker then return nil end
+    -- อาจเป็น RemoteFunction ชื่อ "RF/BuyFood"
+    return networker:FindFirstChild("RF/BuyFood")
+end
+
+-- ตัวแปรควบคุม loop
+local running = false
+local loopThread = nil
+
+local function startChecking(intervalSeconds)
+    if running then return end
+    running = true
+    loopThread = coroutine.create(function()
+        local buyRemote = getBuyRemote()
+        while running do
+            local shop = getShopContent()
+            if not shop then
+                warn("ShopContent not found")
+                -- ถ้าไม่เจอ shop ให้หยุด loop เพื่อป้องกัน busy-wait
+                running = false
+                break
+            end
+
+            local frames = shop:GetChildren()
+            local toBuy = {}         -- จะเก็บชื่อ Frame ที่มี stock (x1+)
+            local anyNonZero = false -- ถ้ามีอย่างน้อยหนึ่งอันที่ >0
+
+            for _, frame in ipairs(frames) do
+                if frame.Name ~= "Template" and frame:IsA("GuiObject") then
+                    local has, count = frameHasStock(frame)
+                    if has and count > 0 then
+                        table.insert(toBuy, frame.Name)
+                        anyNonZero = true
+                    end
+                end
+            end
+
+            -- ถ้าไม่เจออันใดเลย (all x0) -> หยุดการทำงาน
+            if not anyNonZero then
+                print("[Toggle2] ไม่มีของ (ทั้งหมดเป็น x0) — หยุดการทำงาน")
+                running = false
+                break
+            end
+
+            -- เรียก RemoteFunction ถ้ามีเป้าหมาย
+            if buyRemote and #toBuy > 0 then
+                local args = toBuy -- ตัวอย่างส่งชื่อตรงๆ ตามที่ผู้ใช้ต้องการ
+                local success, res = pcall(function()
+                    return buyRemote:InvokeServer(unpack(args))
+                end)
+                if not success then
+                    warn("[Toggle2] InvokeServer failed:", res)
+                end
+            else
+                if #toBuy == 0 then
+                    -- ไม่มีอะไรจะซื้อ (แต่ anyNonZero true ไม่น่าจะมาถึงนี่)
+                elseif not buyRemote then
+                    warn("[Toggle2] ไม่พบ RF/BuyFood ใน ReplicatedStorage.Shared.Packages.Networker")
+                end
+            end
+
+            -- หน่วงก่อนวนใหม่
+            wait(intervalSeconds or 0.01)
+        end
+    end)
+    coroutine.resume(loopThread)
+end
+
+local function stopChecking()
+    running = false
+    loopThread = nil
+end
+
+-- หากต้องการผนวกรหัสนี้กับ UI Toggle:
+OverviewSection4:Toggle({
+    Title = "ออโต้ซื้ออาหารทั้งหมด",
+    Callback = function(v)
+        if v then
+            print("[Toggle2] เริ่มตรวจสอบและซื้ออัตโนมัติ")
+            startChecking(0.01) -- ตรวจทุก 0.5 วินาที (ปรับได้)
+        else
+            print("[Toggle2] หยุดการตรวจสอบ")
+            stopChecking()
+        end
+    end
+})
+
+
+
+
+
+
+
+
+
+
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local Backpack = LocalPlayer:WaitForChild("Backpack")
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
+local Networker = ReplicatedStorage
+	:WaitForChild("Shared")
+	:WaitForChild("Packages")
+	:WaitForChild("Networker")
+
+local RF_Feed = Networker:WaitForChild("RF/Feed")
+local RF_BuyFood = Networker:WaitForChild("RF/BuyFood")
+
+local foodList = {
+	Burger = true,
+	Fries = true,
+	Ham = true,
+	Hotdog = true,
+	Pizza = true
+}
+
+local running = false
+local connection
+
+local args = {} -- ใส่ args เพิ่มได้ถ้าจำเป็น
+
+local function equipTool(tool)
+	if tool and tool.Parent == Backpack then
+		tool.Parent = Character
+	end
+end
+
+OverviewSection4:Toggle({
+	Title = "ให้อาหารทั้งหมด",
+	Callback = function(v)
+		running = v
+
+		if running then
+			connection = RunService.Heartbeat:Connect(function(dt)
+				task.wait(0.01)
+
+				for _, tool in ipairs(Backpack:GetChildren()) do
+					if tool:IsA("Tool") and foodList[tool.Name] then
+						equipTool(tool)
+
+						pcall(function()
+							RF_Feed:InvokeServer()
+						end)
+
+						pcall(function()
+							RF_BuyFood:InvokeServer(unpack(args))
+						end)
+					end
+				end
+			end)
+		else
+			if connection then
+				connection:Disconnect()
+				connection = nil
+			end
+		end
+	end
+})
 
 
 
