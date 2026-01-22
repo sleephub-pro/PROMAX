@@ -476,20 +476,6 @@ OverviewSection2:Dropdown({
     end
 })
 
--- เลือกบัพ (ไม่เลือก = ปกติ)
-OverviewSection2:Dropdown({
-    Title = "เลือกบัพ",
-    Values = {"Gold","Diamond"},
-    AllowNone = true,
-    Multi = false,
-    Callback = function(v)
-        selectedBuff = v
-        if EggDropdown then
-            EggDropdown:Refresh(buildEggList(), true)
-        end
-    end
-})
-
 -- รายชื่อไข่
 EggDropdown = OverviewSection2:Dropdown({
     Title = "Multi Dropdown",
@@ -502,27 +488,76 @@ EggDropdown = OverviewSection2:Dropdown({
 })
 
 -- ===================== AUTO BUY =====================
+-- ===================== AUTO BUY =====================
 OverviewSection2:Toggle({
     Title = "Auto Buy Egg",
     Callback = function(v)
+        if running == v then return end
         running = v
+        if not running then return end
 
         task.spawn(function()
             local remoteSpawn = ReplicatedStorage.Shared.Packages.Networker["RF/RequestEggSpawn"]
-            local remoteBuy = ReplicatedStorage.Shared.Packages.Networker["RF/BuyEgg"]
+            local remoteBuy   = ReplicatedStorage.Shared.Packages.Networker["RF/BuyEgg"]
+
+            -- กำหนดบัพที่ต้องการซื้อทั้งหมด
+            -- ถ้าเกมใช้ชื่อแบบไม่มีบัพเป็นปกติ ให้ใส่ "" เป็นตัวแรก
+            local BUFF_PREFIXES = { "", "Gold ", "Diamond " }
 
             while running do
+                if #selectedItems == 0 then
+                    task.wait(0.05)
+                    continue
+                end
+
+                -- รวมชื่อไข่ทุกบัพ
+                local buyList = {}
+                for _, baseName in ipairs(selectedItems) do
+                    for _, prefix in ipairs(BUFF_PREFIXES) do
+                        table.insert(buyList, prefix .. baseName)
+                    end
+                end
+
+                -- ซื้อแบบขนาน (เร็ว)
+                local maxConcurrent = 12
+                local active, completed = 0, 0
+                local total = #buyList
+
+                local function buy(name)
+                    task.spawn(function()
+                        while running and active >= maxConcurrent do
+                            task.wait(0.005)
+                        end
+                        if not running then return end
+                        active += 1
+                        pcall(function()
+                            remoteBuy:InvokeServer(name, 1)
+                        end)
+                        active -= 1
+                        completed += 1
+                    end)
+                end
+
+                for _, name in ipairs(buyList) do
+                    buy(name)
+                end
+
+                -- รอให้ซื้อครบทุกบัพก่อน
+                while running and completed < total do
+                    task.wait(0.01)
+                end
+
+                -- ค่อย Spawn หลังซื้อครบ
                 pcall(function()
                     remoteSpawn:InvokeServer()
-                    for _, eggName in ipairs(selectedItems) do
-                        remoteBuy:InvokeServer(eggName, 1)
-                    end
                 end)
-                task.wait(0.2)
+
+                task.wait(0.06)
             end
         end)
     end
 })
+
 
 
 
@@ -963,14 +998,43 @@ OverviewSection3:Toggle({
 
 
 
--- LocalScript (ตัวอย่างใช้ร่วมกับ OverviewSection1:Toggle)
+-- LocalScript (ใช้ร่วมกับ OverviewSection4:Toggle)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
 local LocalPlayer = Players.LocalPlayer
 
--- ปรับได้ถ้าตำแหน่งอื่น
+-- ปรับได้
+local SCAN_INTERVAL = 0      -- fallback scan interval (วินาที)
+local BUY_THROTTLE = 0     -- throttle ต่อ frame ชื่อ (วินาที)
+
+-- ========== helpers ==========
+local function parseXCountFromText(txt)
+    if type(txt) ~= "string" then return nil end
+    local n = txt:match("x(%d+)")
+    if n then return tonumber(n) end
+    return nil
+end
+
+local function frameHasStock(frame)
+    for _, desc in ipairs(frame:GetDescendants()) do
+        if desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("TextBox") then
+            local ok, txt = pcall(function() return desc.Text end)
+            if ok and type(txt) == "string" then
+                local num = parseXCountFromText(txt)
+                if num and num > 0 then
+                    return true, num
+                end
+            end
+        end
+    end
+    return false, 0
+end
+
+-- หา Shop GUI (ต้องการโครงตามตัวอย่าง)
 local function getShopContent()
-    local playerGui = LocalPlayer:WaitForChild("PlayerGui", 5)
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
     if not playerGui then return nil end
     local main = playerGui:FindFirstChild("Main")
     if not main then return nil end
@@ -982,130 +1046,226 @@ local function getShopContent()
     return shop
 end
 
--- helper: หาเลขจากข้อความรูปแบบ "x<number>" (เช่น "x1", "x10")
-local function parseXCountFromText(txt)
-    if type(txt) ~= "string" then return nil end
-    local n = txt:match("x(%d+)")
-    if n then
-        return tonumber(n)
-    end
-    return nil
-end
-
--- ตรวจสอบแต่ละ Frame ว่ามี stock (x1+) หรือไม่
-local function frameHasStock(frame)
-    -- มองหา descendant ที่เป็น TextLabel / TextButton / TextBox แล้วตรวจข้อความ
-    for _, desc in ipairs(frame:GetDescendants()) do
-        if desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("TextBox") then
-            local ok, txt = pcall(function() return desc.Text end)
-            if ok and type(txt) == "string" then
-                local num = parseXCountFromText(txt)
-                if num and num > 0 then
-                    return true, num
-                elseif num and num == 0 then
-                    -- เจอ explicit x0 -> บอกว่าไม่มีที่จุดนี้ แต่อาจมีที่อื่น
-                end
-            end
-        end
-    end
-    return false, 0
-end
-
--- remote lookup (ตาม path ที่ผู้ใช้ให้มา)
+-- หา Remote (และจะพยายามหาใหม่ถ้ามีการเปลี่ยน)
 local function getBuyRemote()
-    local ok, shared = pcall(function()
-        return ReplicatedStorage:WaitForChild("Shared",5)
-    end)
+    local ok, shared = pcall(function() return ReplicatedStorage:WaitForChild("Shared", 1) end)
     if not ok or not shared then return nil end
-    local ok2, packages = pcall(function() return shared:WaitForChild("Packages",5) end)
+    local ok2, packages = pcall(function() return shared:FindFirstChild("Packages") end)
     if not ok2 or not packages then return nil end
     local networker = packages:FindFirstChild("Networker")
     if not networker then return nil end
-    -- อาจเป็น RemoteFunction ชื่อ "RF/BuyFood"
     return networker:FindFirstChild("RF/BuyFood")
 end
 
--- ตัวแปรควบคุม loop
+-- ========== state & connections ==========
 local running = false
-local loopThread = nil
+local guiConnections = {}        -- เก็บ connections ของ GUI (per object)
+local shopChangedConn = nil
+local playerGuiConn = nil
+local remoteWatchConn = nil
+local lastBuyTime = {}           -- throttle per frame name
+local fallbackBind = nil
 
+local function clearGuiConnections()
+    for _, conn in ipairs(guiConnections) do
+        if conn and conn.Connected then
+            conn:Disconnect()
+        end
+    end
+    guiConnections = {}
+    if shopChangedConn and shopChangedConn.Connected then
+        shopChangedConn:Disconnect()
+    end
+    shopChangedConn = nil
+end
+
+local function invokeBuyRemote(args)
+    local buyRemote = getBuyRemote()
+    if not buyRemote then
+        warn("[AutoBuy] RF/BuyFood not found (will retry later)")
+        return
+    end
+    local success, res = pcall(function()
+        return buyRemote:InvokeServer(unpack(args))
+    end)
+    if not success then
+        warn("[AutoBuy] InvokeServer failed:", res)
+    end
+end
+
+-- สแกน shop และสั่งซื้อ (respect throttle)
+local function scanAndBuy(shop)
+    if not shop or not shop.Parent then return end
+    local toBuy = {}
+    local now = tick()
+    for _, frame in ipairs(shop:GetChildren()) do
+        if frame.Name ~= "Template" and frame:IsA("GuiObject") then
+            local has, count = frameHasStock(frame)
+            if has and count > 0 then
+                local last = lastBuyTime[frame.Name] or 0
+                if now - last >= BUY_THROTTLE then
+                    table.insert(toBuy, frame.Name)
+                    lastBuyTime[frame.Name] = now
+                end
+            end
+        end
+    end
+    if #toBuy > 0 then
+        invokeBuyRemote(toBuy)
+    end
+end
+
+-- ตั้ง observer ให้กับแต่ละ Text descendant เพื่อให้ตอบสนองแบบเรียลไทม์
+local function setupShopObservers(shop)
+    if not shop then return end
+    clearGuiConnections()
+    -- connect to descendant Text changes
+    for _, frame in ipairs(shop:GetChildren()) do
+        if frame.Name ~= "Template" and frame:IsA("GuiObject") then
+            for _, desc in ipairs(frame:GetDescendants()) do
+                if desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("TextBox") then
+                    -- ใช้ GetPropertyChangedSignal เพื่อจับการเปลี่ยน Text
+                    local conn = desc:GetPropertyChangedSignal("Text"):Connect(function()
+                        -- เบาๆ: debounce per shop (เราใช้ tick throttle เมื่อสั่งซื้อ)
+                        scanAndBuy(shop)
+                    end)
+                    table.insert(guiConnections, conn)
+                end
+            end
+            -- ถ้า frame เพิ่มลูกใหม่ (text object ใหม่) ให้สแกนอีกครั้งและเชื่อม observer ของลูกใหม่ด้วย
+            local childConn = frame.ChildAdded:Connect(function(child)
+                if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+                    local conn = child:GetPropertyChangedSignal("Text"):Connect(function()
+                        scanAndBuy(shop)
+                    end)
+                    table.insert(guiConnections, conn)
+                end
+                -- ถ้ามี descendants อีก ให้เชื่อมกับพวกนั้นด้วย (safe)
+                for _, d in ipairs(child:GetDescendants()) do
+                    if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then
+                        local conn = d:GetPropertyChangedSignal("Text"):Connect(function()
+                            scanAndBuy(shop)
+                        end)
+                        table.insert(guiConnections, conn)
+                    end
+                end
+            end)
+            table.insert(guiConnections, childConn)
+        end
+    end
+
+    -- ถ้ามีการเปลี่ยนลูกของ shop (เช่น เพิ่ม/ลบ frame) ให้สแกนใหม่และรี-setup
+    shopChangedConn = shop.ChildAdded:Connect(function()
+        -- เล็กน้อยหน่วงเพื่อให้ UI สร้างเสร็จ
+        wait(0.05)
+        scanAndBuy(shop)
+        -- รี-setup เพื่อแน่ใจว่าเชื่อม observer กับรายการใหม่
+        setupShopObservers(shop)
+    end)
+    -- และเมื่อลบ child ก็รี-setup
+    local shopRemovedConn = shop.ChildRemoved:Connect(function()
+        wait(0.05)
+        setupShopObservers(shop)
+    end)
+    table.insert(guiConnections, shopRemovedConn)
+end
+
+-- ฟังก์ชัน start/stop
 local function startChecking(intervalSeconds)
     if running then return end
     running = true
-    loopThread = coroutine.create(function()
-        local buyRemote = getBuyRemote()
-        while running do
+
+    -- ฟังก์ชัน fallback scan เป็นระยะ (เช่น ทุก SCAN_INTERVAL)
+    fallbackBind = RunService.Heartbeat:Connect(function(dt)
+        -- ทำงานไม่ถี่มาก — ใช้ tick modulus
+        -- จะเรียก scan แค่ตาม intervalSeconds ที่กำหนด
+        -- เก็บ lastTick ใน closure
+    end)
+
+    -- จะใช้ตัวแปร internal สำหรับเวลาครั้งสุดท้ายที่สแกน fallback
+    local lastScan = 0
+    -- connect Heartbeat เพื่อเป็น fallback periodic scanner
+    if fallbackBind and fallbackBind.Connected then
+        fallbackBind:Disconnect() -- เรจะสร้างใหม่ด้วย closure มี lastScan
+    end
+    fallbackBind = RunService.Heartbeat:Connect(function(dt)
+        if not running then return end
+        local now = tick()
+        if now - lastScan >= (intervalSeconds or SCAN_INTERVAL) then
+            lastScan = now
             local shop = getShopContent()
-            if not shop then
-                warn("ShopContent not found")
-                -- ถ้าไม่เจอ shop ให้หยุด loop เพื่อป้องกัน busy-wait
-                running = false
-                break
+            if shop then
+                scanAndBuy(shop)
             end
-
-            local frames = shop:GetChildren()
-            local toBuy = {}         -- จะเก็บชื่อ Frame ที่มี stock (x1+)
-            local anyNonZero = false -- ถ้ามีอย่างน้อยหนึ่งอันที่ >0
-
-            for _, frame in ipairs(frames) do
-                if frame.Name ~= "Template" and frame:IsA("GuiObject") then
-                    local has, count = frameHasStock(frame)
-                    if has and count > 0 then
-                        table.insert(toBuy, frame.Name)
-                        anyNonZero = true
-                    end
-                end
-            end
-
-            -- ถ้าไม่เจออันใดเลย (all x0) -> หยุดการทำงาน
-            if not anyNonZero then
-                print("[Toggle2] ไม่มีของ (ทั้งหมดเป็น x0) — หยุดการทำงาน")
-                running = false
-                break
-            end
-
-            -- เรียก RemoteFunction ถ้ามีเป้าหมาย
-            if buyRemote and #toBuy > 0 then
-                local args = toBuy -- ตัวอย่างส่งชื่อตรงๆ ตามที่ผู้ใช้ต้องการ
-                local success, res = pcall(function()
-                    return buyRemote:InvokeServer(unpack(args))
-                end)
-                if not success then
-                    warn("[Toggle2] InvokeServer failed:", res)
-                end
-            else
-                if #toBuy == 0 then
-                    -- ไม่มีอะไรจะซื้อ (แต่ anyNonZero true ไม่น่าจะมาถึงนี่)
-                elseif not buyRemote then
-                    warn("[Toggle2] ไม่พบ RF/BuyFood ใน ReplicatedStorage.Shared.Packages.Networker")
-                end
-            end
-
-            -- หน่วงก่อนวนใหม่
-            wait(intervalSeconds or 0.01)
         end
     end)
-    coroutine.resume(loopThread)
+
+    -- Watch PlayerGui for Shop appear/disappear
+    playerGuiConn = LocalPlayer:GetPropertyChangedSignal("PlayerGui"):Connect(function()
+        -- nothing here — prefer ChildAdded on PlayerGui
+    end)
+    -- Connect ChildAdded on PlayerGui to setup observer when Main/Frames/FoodMerchant/ShopContent appears
+    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+    if pg then
+        playerGuiConn = pg.ChildAdded:Connect(function(child)
+            -- short delay to let UI fully create
+            wait(0.05)
+            local shop = getShopContent()
+            if shop then
+                setupShopObservers(shop)
+                scanAndBuy(shop)
+            end
+        end)
+        -- Also react when Main already present at start
+        local initialShop = getShopContent()
+        if initialShop then
+            setupShopObservers(initialShop)
+            scanAndBuy(initialShop)
+        end
+    end
+
+    -- Watch for RF/BuyFood re-appearance (optional)
+    -- We connect to ReplicatedStorage.Shared.Packages.Networker child changes if available
+    local ok, shared = pcall(function() return ReplicatedStorage:FindFirstChild("Shared") end)
+    if ok and shared then
+        local packages = shared:FindFirstChild("Packages")
+        if packages then
+            local networker = packages:FindFirstChild("Networker")
+            if networker then
+                remoteWatchConn = networker.ChildAdded:Connect(function()
+                    -- no-op: next Invoke will pick it up via getBuyRemote()
+                end)
+            end
+        end
+    end
 end
 
 local function stopChecking()
     running = false
-    loopThread = nil
+    clearGuiConnections()
+    if playerGuiConn and playerGuiConn.Connected then playerGuiConn:Disconnect() end
+    playerGuiConn = nil
+    if remoteWatchConn and remoteWatchConn.Connected then remoteWatchConn:Disconnect() end
+    remoteWatchConn = nil
+    if fallbackBind and fallbackBind.Connected then fallbackBind:Disconnect() end
+    fallbackBind = nil
+    lastBuyTime = {}
+    print("[Toggle] หยุดการตรวจสอบออโต้ซื้ออาหาร")
 end
 
--- หากต้องการผนวกรหัสนี้กับ UI Toggle:
+-- ตัวอย่างผนวกกับ UI Toggle
 OverviewSection4:Toggle({
     Title = "ออโต้ซื้ออาหารทั้งหมด",
     Callback = function(v)
         if v then
-            print("[Toggle2] เริ่มตรวจสอบและซื้ออัตโนมัติ")
-            startChecking(0.01) -- ตรวจทุก 0.5 วินาที (ปรับได้)
+            print("[Toggle] เริ่มตรวจสอบและซื้ออัตโนมัติ")
+            startChecking(0.5) -- ปรับความถี่ fallback ได้ที่นี่
         else
-            print("[Toggle2] หยุดการตรวจสอบ")
             stopChecking()
         end
     end
 })
+
 
 
 
