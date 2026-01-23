@@ -606,7 +606,7 @@ end)
  })
 
  OverviewSection1:Toggle({
- 	Title = "อโต้วาปไปตีกล่อง",
+ 	Title = "ออโต้วาปไปตีกล่อง",
  	Callback = function(v)
  		runningLucky = v
  	end
@@ -736,4 +736,5 @@ do
         
     end
 end
+
 
