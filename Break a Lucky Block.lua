@@ -592,21 +592,21 @@ end)
 
 
  OverviewSection1:Input({
- 	Title = "Brainrot $/s",
+ 	Title = "ใส่ค่าสร้างเงินขั้นต้ำ",
  	Callback = function(v)
  		cashLimit = tonumber(v) or 0
  	end
  })
 
  OverviewSection1:Toggle({
- 	Title = "Brainrot",
+ 	Title = "เก็บ Brainrot",
  	Callback = function(v)
  		runningBrainrot = v
  	end
  })
 
  OverviewSection1:Toggle({
- 	Title = "LuckyBlocks",
+ 	Title = "อโต้วาปไปตีกล่อง",
  	Callback = function(v)
  		runningLucky = v
  	end
@@ -736,3 +736,4 @@ do
         
     end
 end
+
