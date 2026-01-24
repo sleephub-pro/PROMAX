@@ -1,0 +1,391 @@
+--[[
+    ╔════════════════════════════════════════════════════════════════════╗
+    ║  🔐 SLEEPAHUB XENO - PREMIUM UI REDESIGN (QUANTUM EDITION)       ║
+    ║  • Modern "Glassmorphism" Aesthetics                               ║
+    ║  • Interactive Animations & Sound Effects                          ║
+    ║  • Secure HTTP Handshake & HWID Validation                         ║
+    ╚════════════════════════════════════════════════════════════════════╝
+]]
+
+--// 1. SERVICES & SETUP
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+local Player = Players.LocalPlayer
+local Mouse = Player:GetMouse()
+
+-- CONFIGURATION
+local CONFIG = {
+    API_URL = "https://script.google.com/macros/s/AKfycbxoN4l94VJk5wR4ZaJeYcoxGjALC-dNqLpO-aKSr47_VN21vtNLGc_qCdz1Nggw9GPR/exec",
+    SCRIPT_URL = "https://raw.githubusercontent.com/sleephub-pro/SLRRP-HUB/refs/heads/main/SLEEP%20HUB%20PROMAX",
+    COLORS = {
+        Primary = Color3.fromRGB(114, 137, 218),     -- Blurple
+        Secondary = Color3.fromRGB(30, 31, 34),      -- Dark Gray
+        Background = Color3.fromRGB(18, 18, 20),     -- Almost Black
+        Accent = Color3.fromRGB(98, 210, 162),       -- Mint Green (Success)
+        Error = Color3.fromRGB(237, 66, 69),         -- Red (Fail)
+        Text = Color3.fromRGB(255, 255, 255)
+    }
+}
+
+-- HWID GENERATION
+local successHWID, HWID = pcall(function()
+    return game:GetService("RbxAnalyticsService"):GetClientId()
+end)
+if not successHWID then HWID = "UNKNOWN_ID-"..tostring(math.random(100000,999999)) end
+
+--// 2. UI LIBRARY UTILITIES
+local function Create(class, properties)
+    local instance = Instance.new(class)
+    for k, v in pairs(properties) do
+        instance[k] = v
+    end
+    return instance
+end
+
+local function Tween(instance, info, properties)
+    local tween = TweenService:Create(instance, info, properties)
+    tween:Play()
+    return tween
+end
+
+local function MakeDraggable(frame, handle)
+    local dragging, dragInput, dragStart, startPos
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    handle.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            Tween(frame, TweenInfo.new(0.05), {Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)})
+        end
+    end)
+end
+
+--// 3. GUI CONSTRUCTION
+
+-- Cleanup old instance
+if CoreGui:FindFirstChild("SleepHubXeno_UI") then
+    CoreGui.SleepHubXeno_UI:Destroy()
+end
+
+local ScreenGui = Create("ScreenGui", {
+    Name = "SleepHubXeno_UI",
+    Parent = CoreGui,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    ResetOnSpawn = false
+})
+
+-- Background Dimmer
+local Dimmer = Create("Frame", {
+    Name = "Dimmer",
+    Parent = ScreenGui,
+    BackgroundColor3 = Color3.new(0,0,0),
+    BackgroundTransparency = 1,
+    Size = UDim2.fromScale(1, 1),
+    ZIndex = 0
+})
+Tween(Dimmer, TweenInfo.new(1), {BackgroundTransparency = 0.6})
+
+-- Main Card
+local MainFrame = Create("Frame", {
+    Name = "MainFrame",
+    Parent = ScreenGui,
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    BackgroundColor3 = CONFIG.COLORS.Background,
+    BackgroundTransparency = 0.1,
+    Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.fromOffset(0, 0), -- Start small for animation
+    ClipsDescendants = true
+})
+
+local MainCorner = Create("UICorner", {Parent = MainFrame, CornerRadius = UDim.new(0, 12)})
+local MainStroke = Create("UIStroke", {Parent = MainFrame, Thickness = 2, Color = CONFIG.COLORS.Primary, Transparency = 0.5})
+
+-- Background Moving Grid Pattern
+local GridPattern = Create("ImageLabel", {
+    Parent = MainFrame,
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://6071575925", -- Grid Texture
+    ImageColor3 = CONFIG.COLORS.Primary,
+    ImageTransparency = 0.92,
+    ScaleType = Enum.ScaleType.Tile,
+    TileSize = UDim2.fromOffset(100, 100),
+    Size = UDim2.fromScale(2, 2),
+    Position = UDim2.fromScale(-0.5, -0.5),
+    ZIndex = 0
+})
+
+-- Grid Animation
+spawn(function()
+    while MainFrame.Parent do
+        GridPattern.Position = UDim2.fromScale(-0.5, -0.5)
+        Tween(GridPattern, TweenInfo.new(5, Enum.EasingStyle.Linear), {Position = UDim2.fromScale(-0.2, -0.2)}).Completed:Wait()
+    end
+end)
+
+-- Top Bar (Title)
+local TopBar = Create("Frame", {
+    Parent = MainFrame,
+    BackgroundTransparency = 1,
+    Size = UDim2.new(1, 0, 0, 50)
+})
+
+local Title = Create("TextLabel", {
+    Parent = TopBar,
+    BackgroundTransparency = 1,
+    Position = UDim2.new(0, 20, 0, 0),
+    Size = UDim2.new(1, -40, 1, 0),
+    Font = Enum.Font.GothamBlack,
+    Text = "SLEEP<font color='#7289DA'>HUB</font> XENO",
+    RichText = true,
+    TextColor3 = Color3.fromRGB(240, 240, 240),
+    TextSize = 24,
+    TextXAlignment = Enum.TextXAlignment.Left
+})
+
+local CloseBtn = Create("TextButton", {
+    Parent = TopBar,
+    BackgroundTransparency = 1,
+    Position = UDim2.new(1, -35, 0.5, 0),
+    AnchorPoint = Vector2.new(0, 0.5),
+    Size = UDim2.fromOffset(25, 25),
+    Font = Enum.Font.GothamBold,
+    Text = "X",
+    TextColor3 = Color3.fromRGB(150, 150, 150),
+    TextSize = 16
+})
+CloseBtn.MouseButton1Click:Connect(function()
+    Tween(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.fromOffset(0,0)})
+    Tween(Dimmer, TweenInfo.new(0.3), {BackgroundTransparency = 1})
+    wait(0.3)
+    ScreenGui:Destroy()
+end)
+
+-- Content Container
+local Content = Create("Frame", {
+    Parent = MainFrame,
+    BackgroundTransparency = 1,
+    Position = UDim2.new(0, 20, 0, 60),
+    Size = UDim2.new(1, -40, 1, -70)
+})
+
+-- Key Input
+local KeyContainer = Create("Frame", {
+    Parent = Content,
+    BackgroundColor3 = CONFIG.COLORS.Secondary,
+    Size = UDim2.new(1, 0, 0, 45)
+})
+Create("UICorner", {Parent = KeyContainer, CornerRadius = UDim.new(0, 8)})
+local KeyStroke = Create("UIStroke", {Parent = KeyContainer, Thickness = 1, Color = Color3.fromRGB(60,60,65), ApplyStrokeMode = Enum.ApplyStrokeMode.Border})
+
+local KeyIcon = Create("ImageLabel", {
+    Parent = KeyContainer,
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://7072718306", -- Key Icon
+    Position = UDim2.new(0, 12, 0.5, 0),
+    AnchorPoint = Vector2.new(0, 0.5),
+    Size = UDim2.fromOffset(20, 20),
+    ImageColor3 = CONFIG.COLORS.Primary
+})
+
+local KeyBox = Create("TextBox", {
+    Parent = KeyContainer,
+    BackgroundTransparency = 1,
+    Position = UDim2.new(0, 45, 0, 0),
+    Size = UDim2.new(1, -55, 1, 0),
+    Font = Enum.Font.Gotham,
+    PlaceholderText = "Paste Access Key Here...",
+    Text = "",
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    PlaceholderColor3 = Color3.fromRGB(120, 120, 120),
+    TextSize = 14,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ClearTextOnFocus = false
+})
+
+-- Input Focus Animation
+KeyBox.Focused:Connect(function()
+    Tween(KeyStroke, TweenInfo.new(0.3), {Color = CONFIG.COLORS.Primary, Transparency = 0})
+    Tween(KeyIcon, TweenInfo.new(0.3), {ImageColor3 = CONFIG.COLORS.Text})
+end)
+KeyBox.FocusLost:Connect(function()
+    Tween(KeyStroke, TweenInfo.new(0.3), {Color = Color3.fromRGB(60,60,65), Transparency = 0})
+    Tween(KeyIcon, TweenInfo.new(0.3), {ImageColor3 = CONFIG.COLORS.Primary})
+end)
+
+-- Action Buttons Container
+local ButtonContainer = Create("Frame", {
+    Parent = Content,
+    BackgroundTransparency = 1,
+    Position = UDim2.new(0, 0, 0, 60),
+    Size = UDim2.new(1, 0, 0, 40)
+})
+
+local function CreateButton(text, color, positionScale, callback)
+    local Btn = Create("TextButton", {
+        Parent = ButtonContainer,
+        BackgroundColor3 = color,
+        Size = UDim2.new(0.48, 0, 1, 0),
+        Position = UDim2.new(positionScale, 0, 0, 0),
+        Font = Enum.Font.GothamBold,
+        Text = text,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextSize = 14,
+        AutoButtonColor = false
+    })
+    Create("UICorner", {Parent = Btn, CornerRadius = UDim.new(0, 8)})
+    
+    -- Gradient
+    local Gradient = Create("UIGradient", {
+        Parent = Btn,
+        Color = ColorSequence.new{
+            ColorSequenceKeypoint.new(0, Color3.new(1,1,1)),
+            ColorSequenceKeypoint.new(1, Color3.new(0.8,0.8,0.8))
+        },
+        Rotation = 45
+    })
+
+    -- Hover Logic
+    Btn.MouseEnter:Connect(function()
+        Tween(Btn, TweenInfo.new(0.2), {Size = UDim2.new(0.48, 4, 1, 4), Position = UDim2.new(positionScale, -2, 0, -2)})
+    end)
+    Btn.MouseLeave:Connect(function()
+        Tween(Btn, TweenInfo.new(0.2), {Size = UDim2.new(0.48, 0, 1, 0), Position = UDim2.new(positionScale, 0, 0, 0)})
+    end)
+    
+    Btn.MouseButton1Click:Connect(function()
+        -- Click Bounce
+        Tween(Btn, TweenInfo.new(0.1), {Size = UDim2.new(0.48, -4, 1, -4)}).Completed:Wait()
+        Tween(Btn, TweenInfo.new(0.1), {Size = UDim2.new(0.48, 0, 1, 0)})
+        callback()
+    end)
+    return Btn
+end
+
+local VerifyBtn = CreateButton("ENTER", CONFIG.COLORS.Primary, 0.52, function()
+    -- Verification Logic Placeholder
+end)
+
+local GetKeyBtn = CreateButton("GET KEY", Color3.fromRGB(60, 60, 65), 0, function()
+    setclipboard("https://link-to-key-system.com")
+    KeyBox.Text = "Link Copied to Clipboard!"
+    wait(1.5)
+    KeyBox.Text = ""
+end)
+
+-- Notification/Status Area
+local StatusLabel = Create("TextLabel", {
+    Parent = Content,
+    BackgroundTransparency = 1,
+    Position = UDim2.new(0, 0, 1, -30),
+    Size = UDim2.new(1, 0, 0, 20),
+    Font = Enum.Font.Gotham,
+    Text = "Connected as: " .. Player.Name,
+    TextColor3 = Color3.fromRGB(100, 100, 120),
+    TextSize = 12
+})
+
+-- Notification System Function
+local function Notify(msg, type)
+    local Color = type == "success" and CONFIG.COLORS.Accent or CONFIG.COLORS.Error
+    StatusLabel.Text = msg
+    StatusLabel.TextColor3 = Color
+    StatusLabel.TextTransparency = 0
+    
+    -- Shake Effect if error
+    if type == "error" then
+        for i = 1, 6 do
+            MainFrame.Position = MainFrame.Position + UDim2.new(0, (i%2==0 and -5 or 5), 0, 0)
+            wait(0.05)
+        end
+        MainFrame.Position = UDim2.fromScale(0.5, 0.5)
+    end
+    
+    delay(3, function()
+        Tween(StatusLabel, TweenInfo.new(1), {TextColor3 = Color3.fromRGB(100, 100, 120), TextTransparency = 0.5})
+        StatusLabel.Text = "Waiting for input..."
+    end)
+end
+
+--// 4. LOGIC & CONNECTIONS
+
+-- Attach Verify Logic
+VerifyBtn.MouseButton1Click:Connect(function()
+    local key = KeyBox.Text
+    if key == "" or #key < 5 then
+        Notify("⚠️ Please enter a valid key", "error")
+        return
+    end
+
+    VerifyBtn.Text = "..."
+    VerifyBtn.Active = false
+    
+    local encodedKey = HttpService:UrlEncode(key)
+    local encodedHWID = HttpService:UrlEncode(HWID)
+    local requestUrl = CONFIG.API_URL .. "?key=" .. encodedKey .. "&hwid=" .. encodedHWID
+
+    task.spawn(function()
+        local success, result = pcall(function()
+            return game:HttpGet(requestUrl, true)
+        end)
+
+        VerifyBtn.Active = true
+        VerifyBtn.Text = "ENTER"
+
+        if success then
+            if string.find(result, "BIND_OK") or string.find(result, "OK") then
+                Notify("🔓 Access Granted", "success")
+                
+                -- Success Animation
+                Tween(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.fromOffset(0,0)})
+                Tween(Dimmer, TweenInfo.new(0.5), {BackgroundTransparency = 1})
+                
+                wait(0.6)
+                ScreenGui:Destroy()
+                
+                -- EXECUTE SCRIPT
+                local loadSuccess, loadErr = pcall(function()
+                    loadstring(game:HttpGet(CONFIG.SCRIPT_URL))()
+                end)
+                if not loadSuccess then warn("Script Load Error:", loadErr) end
+            elseif string.find(result, "HWID_MISMATCH") then
+                Notify("❌ HWID Mismatch (Wrong Device)", "error")
+            elseif string.find(result, "INVALID_KEY") then
+                Notify("❌ Key is Invalid or Expired", "error")
+            else
+                Notify("❌ Unknown Response: " .. string.sub(result, 1, 15), "error")
+            end
+        else
+            Notify("🌐 Connection Failed", "error")
+        end
+    end)
+end)
+
+--// 5. INITIALIZATION ANIMATION
+MakeDraggable(MainFrame, TopBar)
+MainFrame.Size = UDim2.fromOffset(0, 0)
+MainFrame.Visible = true
+
+Tween(MainFrame, TweenInfo.new(0.6, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
+    Size = UDim2.fromOffset(450, 240)
+})
