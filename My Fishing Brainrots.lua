@@ -425,14 +425,15 @@ local itemRarity = {
     ["Rare"] = {"Salamino Penguino", "Fluriflura", "Tim Cheese"},
     ["Epic"] = {"Orangutini Ananasini", "Brr Brr Patapim", "Udin Din Din Din Dun", "Pipi Kiwi"},
     ["Legendary"] = {"Chef Crabracadabra", "Boneca Ambalabu", "Cacto Hipopotamo", "Sigma Boy"},
-    ["XMAS 25"] = {"Ginger Sekolah", "67", "Elf Elf Sahur", "Santa Hotspot"},
+    ["XMAS 25"] = {"Ginger Sekolah", "Ginger 67", "Elf Elf Sahur", "Santa Hotspot"},
     ["Mythic"] = {"Gorillo Watermelondrillo", "Tric Trac Barabum", "Avocadini Guffo", "Quivioli Ameleonni", "Friggo Camelo", "Pakrahmatmamat"},
     ["Secret"] = {"La Vacca Saturnita", "Tic Tac Sahur", "Pot Hotspot", "Job Job Sahur", "La Grande Combination"},
     ["Exotic"] = {"67", "Esok Sekolah", "Girafa Celestre", "Chillin Chilli", "Swag Soda", "Matteo", "Strawberelli Flamingelli", "Ketupat Kepat"},
-    ["Event"] = {"Taco Block", "Tralalelodon", "Orcadon", "Blingo Tentacolo", "Eviledon"},
+    ["Event"] = {"Tralalelodon", "Orcadon", "Orcadon", "Blingo Tentacolo", "Eviledon", "Moby bobby"},
     ["OG"] = {"Ganganzelli Trulala", "Strawberry Elephant", "Crystalini Ananassini", "Meowl", "Spiuniru Golubiru"},
-    ["Divine"] = {"Dragon Cannelloni", "Chicleteira Bicicleteira", "Crabbo Limonetta"},
-    ["Admin"] = {"Admin Egg"}
+    ["Divine"] = {"Dragon Cannelloni", "Chicleteira Bicicleteira", "Crabbo Limonetta", "Alessio", "Mariachi Skeletoni", "Piccione Maccina"},
+	["GOD"] = {"Money Money Man", "Karloo"}
+    ["Admin"] = {"Admin Egg", "Taco Block"}
 }
 
 -- ===================== STATE =====================
@@ -1408,3 +1409,4 @@ do
         
     end
 end
+
