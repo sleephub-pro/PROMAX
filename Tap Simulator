@@ -1,0 +1,850 @@
+--[[
+
+    WindUI Example (wip)
+    
+]]
+
+
+local WindUI
+
+do
+    local ok, result = pcall(function()
+        return require("./src/Init")
+    end)
+    
+    if ok then
+        WindUI = result
+    else 
+        WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+    end
+end
+
+--[[
+
+WindUI.Creator.AddIcons("solar", {
+    ["CheckSquareBold"] = "rbxassetid://132438947521974",
+    ["CursorSquareBold"] = "rbxassetid://120306472146156",
+    ["FileTextBold"] = "rbxassetid://89294979831077",
+    ["FolderWithFilesBold"] = "rbxassetid://74631950400584",
+    ["HamburgerMenuBold"] = "rbxassetid://134384554225463",
+    ["Home2Bold"] = "rbxassetid://92190299966310",
+    ["InfoSquareBold"] = "rbxassetid://119096461016615",
+    ["PasswordMinimalisticInputBold"] = "rbxassetid://109919668957167",
+    ["SolarSquareTransferHorizontalBold"] = "rbxassetid://125444491429160",
+})--]]
+
+
+function createPopup()
+    return WindUI:Popup({
+        Title = "Welcome to the WindUI!",
+        Icon = "bird",
+        Content = "Hello!",
+        Buttons = {
+            {
+                Title = "Hahaha",
+                Icon = "bird",
+                Variant = "Tertiary"
+            },
+            {
+                Title = "Hahaha",
+                Icon = "bird",
+                Variant = "Tertiary"
+            },
+            {
+                Title = "Hahaha",
+                Icon = "bird",
+                Variant = "Tertiary"
+            }
+        }
+    })
+end
+
+
+
+-- */  Window  /* --
+local Window = WindUI:CreateWindow({
+    Title = "SLEEP HUB PRO MAX",
+    --Author = "by .ftgs • Footagesus",
+    Folder = "ftgshub",
+    Icon = "rbxassetid://121030902371363",
+    --IconSize = 22*2,
+    NewElements = true,
+    --Size = UDim2.fromOffset(700,700),
+    
+    HideSearchBar = false,
+    
+    OpenButton = {
+        Title = "Open  UI", -- can be changed
+        CornerRadius = UDim.new(1,0), -- fully rounded
+        StrokeThickness = 3, -- removing outline
+        Enabled = true, -- enable or disable openbutton
+        Draggable = true,
+        OnlyMobile = false,
+        
+        Color = ColorSequence.new( -- gradient
+            Color3.fromHex("#30FF6A"), 
+            Color3.fromHex("#e7ff2f")
+        )
+    },
+    Topbar = {
+        Height = 44,
+        ButtonsType = "Mac", -- Default or Mac
+    },
+
+    --[[
+    KeySystem = {
+        Title = "Key System Example  |  WindUI Example",
+        Note = "Key System. Key: 1234",
+        KeyValidator = function(EnteredKey)
+            if EnteredKey == "1234" then
+                createPopup()
+                return true
+            end
+            return false
+            -- return EnteredKey == "1234" -- if key == "1234" then return true else return false end
+        end
+    }
+    ]]
+})
+
+--createPopup()
+
+--Window:SetUIScale(.8)
+
+-- */  Tags  /* --
+do
+    Window:Tag({
+        Title = "v" .. WindUI.Version,
+        Icon = "github",
+        Color = Color3.fromHex("#1c1c1c"),
+        Border = true,
+    })
+end
+
+-- */  Theme (soon)  /* --
+do
+    --[[WindUI:AddTheme({
+        Name = "Stylish",
+        
+        Accent = Color3.fromHex("#3b82f6"), 
+        Dialog = Color3.fromHex("#1a1a1a"), 
+        Outline = Color3.fromHex("#3b82f6"),
+        Text = Color3.fromHex("#f8fafc"),  
+        Placeholder = Color3.fromHex("#94a3b8"),
+        Button = Color3.fromHex("#334155"), 
+        Icon = Color3.fromHex("#60a5fa"), 
+        
+        WindowBackground = Color3.fromHex("#0f172a"),
+        
+        TopbarButtonIcon = Color3.fromHex("#60a5fa"),
+        TopbarTitle = Color3.fromHex("#f8fafc"),
+        TopbarAuthor = Color3.fromHex("#94a3b8"),
+        TopbarIcon = Color3.fromHex("#3b82f6"),
+        
+        TabBackground = Color3.fromHex("#1e293b"),    
+        TabTitle = Color3.fromHex("#f8fafc"),
+        TabIcon = Color3.fromHex("#60a5fa"),
+        
+        ElementBackground = Color3.fromHex("#1e293b"),
+        ElementTitle = Color3.fromHex("#f8fafc"),
+        ElementDesc = Color3.fromHex("#cbd5e1"),
+        ElementIcon = Color3.fromHex("#60a5fa"),
+    })--]]
+    
+    -- WindUI:SetTheme("Stylish")
+end
+
+
+-- */  Colors  /* --
+local Purple = Color3.fromHex("#7775F2")
+local Yellow = Color3.fromHex("#ECA201")
+local Green = Color3.fromHex("#10C550")
+local Grey = Color3.fromHex("#83889E")
+local Blue = Color3.fromHex("#257AF7")
+local Red = Color3.fromHex("#EF4F1D")
+
+
+-- */ Other Functions /* --
+local function parseJSON(luau_table, indent, level, visited)
+    indent = indent or 2
+    level = level or 0
+    visited = visited or {}
+    
+    local currentIndent = string.rep(" ", level * indent)
+    local nextIndent = string.rep(" ", (level + 1) * indent)
+    
+    if luau_table == nil then
+        return "null"
+    end
+    
+    local dataType = type(luau_table)
+    
+    if dataType == "table" then
+        if visited[luau_table] then
+            return "\"[Circular Reference]\""
+        end
+        
+        visited[luau_table] = true
+        
+        local isArray = true
+        local maxIndex = 0
+        
+        for k, _ in pairs(luau_table) do
+            if type(k) == "number" and k > maxIndex then
+                maxIndex = k
+            end
+            if type(k) ~= "number" or k <= 0 or math.floor(k) ~= k then
+                isArray = false
+                break
+            end
+        end
+        
+        local count = 0
+        for _ in pairs(luau_table) do
+            count = count + 1
+        end
+        if count ~= maxIndex and isArray then
+            isArray = false
+        end
+        
+        if count == 0 then
+            return "{}"
+        end
+        
+        if isArray then
+            if count == 0 then
+                return "[]"
+            end
+            
+            local result = "[\n"
+            
+            for i = 1, maxIndex do
+                result = result .. nextIndent .. parseJSON(luau_table[i], indent, level + 1, visited)
+                if i < maxIndex then
+                    result = result .. ","
+                end
+                result = result .. "\n"
+            end
+            
+            result = result .. currentIndent .. "]"
+            return result
+        else
+            local result = "{\n"
+            local first = true
+            
+            local keys = {}
+            for k in pairs(luau_table) do
+                table.insert(keys, k)
+            end
+            table.sort(keys, function(a, b)
+                if type(a) == type(b) then
+                    return tostring(a) < tostring(b)
+                else
+                    return type(a) < type(b)
+                end
+            end)
+            
+            for _, k in ipairs(keys) do
+                local v = luau_table[k]
+                if not first then
+                    result = result .. ",\n"
+                else
+                    first = false
+                end
+                
+                if type(k) == "string" then
+                    result = result .. nextIndent .. "\"" .. k .. "\": "
+                else
+                    result = result .. nextIndent .. "\"" .. tostring(k) .. "\": "
+                end
+                
+                result = result .. parseJSON(v, indent, level + 1, visited)
+            end
+            
+            result = result .. "\n" .. currentIndent .. "}"
+            return result
+        end
+    elseif dataType == "string" then
+        local escaped = luau_table:gsub("\\", "\\\\")
+        escaped = escaped:gsub("\"", "\\\"")
+        escaped = escaped:gsub("\n", "\\n")
+        escaped = escaped:gsub("\r", "\\r")
+        escaped = escaped:gsub("\t", "\\t")
+        
+        return "\"" .. escaped .. "\""
+    elseif dataType == "number" then
+        return tostring(luau_table)
+    elseif dataType == "boolean" then
+        return luau_table and "true" or "false"
+    elseif dataType == "function" then
+        return "\"function\""
+    else
+        return "\"" .. dataType .. "\""
+    end
+end
+
+local function tableToClipboard(luau_table, indent)
+    indent = indent or 4
+    local jsonString = parseJSON(luau_table, indent)
+    setclipboard(jsonString)
+    return jsonString
+end
+
+
+-- */  About Tab  /* --
+do
+    local AboutTab = Window:Tab({
+        Title = "About WindUI",
+        Desc = "Description Example", 
+        Icon = "solar:info-square-bold",
+        IconColor = Grey,
+        IconShape = "Square",
+    })
+    
+    local AboutSection = AboutTab:Section({
+        Title = "About WindUI",
+    })
+    
+    AboutSection:Image({
+        Image = "https://repository-images.githubusercontent.com/880118829/22c020eb-d1b1-4b34-ac4d-e33fd88db38d",
+        AspectRatio = "16:9",
+        Radius = 9,
+    })
+    
+    AboutSection:Space({ Columns = 3 })
+    
+    AboutSection:Section({
+        Title = "What is WindUI?",
+        TextSize = 24,
+        FontWeight = Enum.FontWeight.SemiBold,
+    })
+
+    AboutSection:Space()
+    
+    AboutSection:Section({
+        Title = [[WindUI is a stylish, open-source UI (User Interface) library specifically designed for Roblox Script Hubs.
+Developed by Footagesus (.ftgs, Footages).
+It aims to provide developers with a modern, customizable, and easy-to-use toolkit for creating visually appealing interfaces within Roblox.
+The project is primarily written in Lua (Luau), the scripting language used in Roblox.]],
+        TextSize = 18,
+        TextTransparency = .35,
+        FontWeight = Enum.FontWeight.Medium,
+    })
+    
+    AboutTab:Space({ Columns = 4 }) 
+    
+    
+    -- Default buttons
+    
+    AboutTab:Button({
+        Title = "Export WindUI JSON (copy)",
+        Color = Color3.fromHex("#a2ff30"),
+        Justify = "Center",
+        IconAlign = "Left",
+        Icon = "", -- removing icon
+        Callback = function()
+            tableToClipboard(WindUI)
+            WindUI:Notify({
+                Title = "WindUI JSON",
+                Content = "Copied to Clipboard!"
+            })
+        end
+    })
+    AboutTab:Space({ Columns = 1 }) 
+    
+    
+    AboutTab:Button({
+        Title = "Destroy Window",
+        Color = Color3.fromHex("#ff4830"),
+        Justify = "Center",
+        Icon = "shredder",
+        IconAlign = "Left",
+        Callback = function()
+            Window:Destroy()
+        end
+    })
+end
+
+
+
+-- */  Elements Section  /* --
+local ElementsSection = Window:Section({
+    Title = "Elements",
+})
+local OtherSection = Window:Section({
+    Title = "Other",
+})
+
+
+
+
+
+-- */  Overview Tab  /* --
+do
+    local OverviewTab = ElementsSection:Tab({
+        Title = "ออโต้ฟาร็ม",
+        Icon = "solar:home-2-bold",
+        IconColor = Blue,
+        IconShape = "Square",
+    })
+    
+    local OverviewSection1 = OverviewTab:Section({
+        Title = "ออโต้ฟาร์ม"
+    })
+    
+    local OverviewGroup3 = OverviewTab:Group({})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+OverviewSection1:Toggle({
+    Title = "ออโต้คลิก OP⚡",
+    Callback = function(v)
+        _G.AutoFireEnabled = v -- กำหนดตัวแปร Global เพื่อเปิด/ปิดระบบ
+
+        if _G.AutoFireEnabled then
+            -- [[ เริ่มต้นโค้ด PREMIUM HYBRID AUTO-FIRE ]] --
+            local TweenService = game:GetService("TweenService")
+            local RunService = game:GetService("RunService")
+            local CoreGui = game:GetService("CoreGui")
+            local Players = game:GetService("Players")
+
+            -- ลบ UI เก่าถ้ามีอยู่
+            if CoreGui:FindFirstChild("MegaHybridUI_V2") then
+                CoreGui.MegaHybridUI_V2:Destroy()
+            end
+
+            local ScreenGui = Instance.new("ScreenGui")
+            ScreenGui.Name = "MegaHybridUI_V2"
+            ScreenGui.Parent = CoreGui
+
+            -- // Elements // --
+            local MainFrame = Instance.new("Frame")
+            local UICorner = Instance.new("UICorner")
+            local UIStroke = Instance.new("UIStroke")
+            local UIGradient = Instance.new("UIGradient")
+            local Title = Instance.new("TextLabel")
+            local StatusCircle = Instance.new("Frame")
+            local StatusCorner = Instance.new("UICorner")
+            local StatusLabel = Instance.new("TextLabel")
+            local Description = Instance.new("TextLabel")
+            local GlowShadow = Instance.new("ImageLabel")
+            local DismissButton = Instance.new("TextButton")
+
+            -- // Properties // --
+            MainFrame.Name = "MainFrame"
+            MainFrame.Parent = ScreenGui
+            MainFrame.AnchorPoint = Vector2.new(1, 0.5)
+            MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+            MainFrame.Position = UDim2.new(1.5, 0, 0.5, 0) 
+            MainFrame.Size = UDim2.new(0, 320, 0, 120)
+            MainFrame.BorderSizePixel = 0
+
+            UICorner.CornerRadius = UDim.new(0, 10)
+            UICorner.Parent = MainFrame
+
+            UIStroke.Parent = MainFrame
+            UIStroke.Thickness = 1.5
+            UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            UIStroke.Color = Color3.fromRGB(255, 255, 255)
+
+            UIGradient.Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 170, 0)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 85, 0))
+            }
+            UIGradient.Parent = UIStroke
+
+            GlowShadow.Name = "Glow"
+            GlowShadow.Parent = MainFrame
+            GlowShadow.BackgroundTransparency = 1
+            GlowShadow.Position = UDim2.new(0, -15, 0, -15)
+            GlowShadow.Size = UDim2.new(1, 30, 1, 30)
+            GlowShadow.Image = "rbxassetid://6014264795"
+            GlowShadow.ImageColor3 = Color3.fromRGB(255, 170, 0)
+            GlowShadow.ImageTransparency = 0.6
+            GlowShadow.ZIndex = 0
+
+            Title.Name = "Title"
+            Title.Parent = MainFrame
+            Title.BackgroundTransparency = 1
+            Title.Position = UDim2.new(0, 15, 0, 10)
+            Title.Size = UDim2.new(0, 200, 0, 30)
+            Title.Font = Enum.Font.GothamBold
+            Title.Text = "ระบบออโต้คลิก"
+            Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Title.TextSize = 18
+            Title.TextXAlignment = Enum.TextXAlignment.Left
+
+            StatusCircle.Name = "StatusDot"
+            StatusCircle.Parent = MainFrame
+            StatusCircle.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
+            StatusCircle.Position = UDim2.new(0, 15, 0, 45)
+            StatusCircle.Size = UDim2.new(0, 8, 0, 8)
+
+            StatusCorner.CornerRadius = UDim.new(1, 0)
+            StatusCorner.Parent = StatusCircle
+
+            StatusLabel.Name = "StatusLabel"
+            StatusLabel.Parent = MainFrame
+            StatusLabel.BackgroundTransparency = 1
+            StatusLabel.Position = UDim2.new(0, 30, 0, 40)
+            StatusLabel.Size = UDim2.new(0, 200, 0, 20)
+            StatusLabel.Font = Enum.Font.GothamMedium
+            StatusLabel.Text = "กรุณาคลิก 1 ทีเพื่อเริ่มสแกน"
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 170, 0)
+            StatusLabel.TextSize = 14
+            StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+            Description.Name = "Description"
+            Description.Parent = MainFrame
+            Description.BackgroundTransparency = 1
+            Description.Position = UDim2.new(0, 15, 0, 70)
+            Description.Size = UDim2.new(1, -30, 0, 30)
+            Description.Font = Enum.Font.Gotham
+            Description.Text = "ระบบกำลังรอรับสัญญาณ Remote..."
+            Description.TextColor3 = Color3.fromRGB(180, 180, 180)
+            Description.TextSize = 11
+            Description.TextWrapped = true
+            Description.TextXAlignment = Enum.TextXAlignment.Left
+
+            DismissButton.Name = "DismissButton"
+            DismissButton.Parent = MainFrame
+            DismissButton.Size = UDim2.new(1, 0, 1, 0)
+            DismissButton.BackgroundTransparency = 1
+            DismissButton.Text = ""
+            DismissButton.ZIndex = 10
+
+            -- // Logic & Animations // --
+            local isClosing = false
+            local function CloseUI()
+                if isClosing then return end
+                isClosing = true
+                TweenService:Create(MainFrame, TweenInfo.new(0.7, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1.5, 0, 0.5, 0)}):Play()
+                task.wait(0.7)
+                ScreenGui:Destroy()
+            end
+
+            DismissButton.MouseButton1Click:Connect(CloseUI)
+            TweenService:Create(MainFrame, TweenInfo.new(1, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(0.98, 0, 0.5, 0)}):Play()
+
+            -- // Hook Logic // --
+            local FoundRemote = nil
+            local function OnSuccessEffect()
+                local targetColor = Color3.fromRGB(0, 255, 200)
+                TweenService:Create(GlowShadow, TweenInfo.new(0.5), {ImageColor3 = targetColor}):Play()
+                TweenService:Create(StatusCircle, TweenInfo.new(0.5), {BackgroundColor3 = targetColor}):Play()
+                StatusLabel.Text = "HYBRID ENGINE ACTIVATED"
+                StatusLabel.TextColor3 = targetColor
+                Description.Text = "ตรวจพบรีโมทแล้ว! ระบบเริ่มทำงานอัตโนมัติ"
+                task.wait(5)
+                CloseUI()
+            end
+
+            -- Hooking Namecall (Metatable)
+            local oldNamecall
+            oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+                local method = getnamecallmethod()
+                local args = {...}
+                
+                if _G.AutoFireEnabled and method == "FireServer" and self.Parent and self.Parent.Name == "Events" then
+                    if not FoundRemote then
+                        FoundRemote = self
+                        task.spawn(OnSuccessEffect)
+                        task.spawn(function()
+                            while _G.AutoFireEnabled and FoundRemote do
+                                pcall(function()
+                                    FoundRemote:FireServer(true, nil, false)
+                                end)
+                                task.wait() -- ปรับความเร็วตรงนี้
+                            end
+                        end)
+                    end
+                end
+                return oldNamecall(self, unpack(args))
+            end)
+        else
+            -- กรณีผู้ใช้กดปิด Toggle
+            if CoreGui:FindFirstChild("MegaHybridUI_V2") then
+                CoreGui.MegaHybridUI_V2:Destroy()
+            end
+        end
+    end
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- ===============================
+-- SERVICES
+-- ===============================
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+
+-- ===============================
+-- VARIABLES
+-- ===============================
+local EggNames = {}
+local SelectedEgg = nil
+local running = false
+
+-- ===============================
+-- ดึงชื่อไฟล์จาก workspace.Eggs
+-- ===============================
+for _, v in ipairs(workspace:WaitForChild("Eggs"):GetChildren()) do
+	table.insert(EggNames, v.Name)
+end
+
+-- ===============================
+-- DROPDOWN
+-- ===============================
+OverviewSection1:Dropdown({
+	Title = "เลือกไข่🥚",
+	Values = EggNames,
+	Value = 1,
+	Callback = function(v)
+		SelectedEgg = v
+		print("เลือก Egg:", v)
+	end
+})
+
+
+-- ===============================
+-- TOGGLE
+-- ===============================
+OverviewSection1:Toggle({
+	Title = "ออโค้ซื้อไข่🥚",
+	Callback = function(v)
+		running = v
+		if not v then return end
+
+		task.spawn(function()
+			-- === CONFIG ===
+			local SELECTED_INDEXES = {83}
+			local DELAY_TIME = 0
+
+			-- หา Folder ใน ReplicatedStorage แบบชื่อเปลี่ยนทุกครั้ง
+			local targetFolder
+			for _, f in ipairs(ReplicatedStorage:GetChildren()) do
+				if f:IsA("Folder") and f:FindFirstChild("Functions") then
+					targetFolder = f
+					break
+				end
+			end
+
+			if not targetFolder then
+				warn("ไม่พบ Folder ที่มี Functions")
+				return
+			end
+
+			local functionsFolder = targetFolder:WaitForChild("Functions")
+			local allRemotes = functionsFolder:GetChildren()
+
+			print("ใช้ Folder:", targetFolder.Name)
+			print("พบ Remote:", #allRemotes)
+
+			local args = {
+				[1] = SelectedEgg or "ใส่ชื่อไฟล์ที่เลือก",
+				[2] = 3,
+				[3] = {}
+			}
+
+			while running do
+				for _, index in ipairs(SELECTED_INDEXES) do
+					local remote = allRemotes[index]
+					if remote and remote:IsA("RemoteFunction") then
+						pcall(function()
+							remote:InvokeServer(unpack(args))
+						end)
+					end
+				end
+				task.wait(DELAY_TIME)
+			end
+		end)
+	end
+})
+
+
+
+
+
+-- === ส่วนเตรียมข้อมูล (Data Setup) === --
+local dropValues = {
+    "1", "5", "15", "35", "70", "100", "500",
+    "1.5k", "3.5k", "7k", "10k", "50k", "150k", "350k", "700k",
+    "1m", "5m", "15m", "35m", "70m", "100m", "500m", -- แก้ไขแพทเทิร์นให้ตรงกับชุด k
+    "1.5b", "3.5b", "7b", "10b", "50b", "150b", "350b", "700b",
+    "1t", "5t", "15t", "35t", "70t", "100t", "500t",
+    "1.5qd" -- และอื่นๆ ตามลำดับถ้าต้องการเพิ่ม
+}
+
+-- สร้าง Index Map เพื่อแปลงค่า String เป็นตัวเลขลำดับ (เช่น "1" -> 1, "5" -> 2)
+local valueToIndexMap = {}
+for i, v in ipairs(dropValues) do
+    valueToIndexMap[v] = i
+end
+
+_G.SelectedArgument = 1 -- ค่า Default
+_G.AutoFarm = false
+
+-- === ส่วน UI Dropdown === --
+OverviewSection1:Dropdown({
+    Title = "เลือกจำนวนการ Rebirths♻️",
+    Values = dropValues,
+    Value = "1", -- ต้องตรงกับค่าในตาราง dropValues
+    Callback = function(selectedValue)
+        -- แปลงค่า String กลับเป็น Index (ตัวเลขลำดับ)
+        if valueToIndexMap[selectedValue] then
+            _G.SelectedArgument = valueToIndexMap[selectedValue]
+            print("Selected Value: " .. selectedValue .. " | Argument Index: " .. _G.SelectedArgument)
+        end
+    end
+})
+
+-- === ส่วน UI Toggle และ AutoFarm Logic === --
+OverviewSection1:Toggle({
+    Title = "ออโต้ Rebirths♻️",
+    Default = false,
+    Callback = function(Value)
+        _G.AutoFarm = Value
+        
+        if _G.AutoFarm then
+            task.spawn(function()
+                -- 1. ค้นหาโฟลเดอร์อัตโนมัติ (แก้ปัญหา UUID เปลี่ยน)
+                local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                local targetFolder = nil
+                local functionsFolder = nil
+
+                -- วนลูปหาโฟลเดอร์ที่มีลูกชื่อ "Functions"
+                for _, child in pairs(ReplicatedStorage:GetChildren()) do
+                    if child:FindFirstChild("Functions") then
+                        targetFolder = child
+                        functionsFolder = child.Functions
+                        break
+                    end
+                end
+
+                if not functionsFolder then
+                    warn("❌ ไม่พบโฟลเดอร์ Functions! กรุณาลองเข้าเกมใหม่")
+                    _G.AutoFarm = false
+                    return
+                end
+
+                print("✅ เจอโฟลเดอร์: " .. targetFolder.Name)
+                
+                -- ดึง Remote ทั้งหมด
+                local allRemotes = functionsFolder:GetChildren()
+                local SELECTED_REMOTE_INDEX = 124 -- ตามที่คุณระบุ
+                
+                -- 2. ลูปการทำงาน
+                while _G.AutoFarm do
+                    -- อัปเดต Arguments ตามที่เลือกใน Dropdown ล่าสุด
+                    local arguments = {
+                        [1] = _G.SelectedArgument 
+                    }
+
+                    local remote = allRemotes[SELECTED_REMOTE_INDEX]
+                    
+                    if remote and remote:IsA("RemoteFunction") then
+                        task.spawn(function()
+                            local success, err = pcall(function()
+                                -- InvokeServer
+                                return remote:InvokeServer(unpack(arguments))
+                            end)
+                            
+                            if success then
+                                -- print("🎯 ยิงสำเร็จ Arg: " .. _G.SelectedArgument) -- เปิดถ้ารก Console
+                            else
+                                warn("⚠️ ผิดพลาด: " .. tostring(err))
+                            end
+                        end)
+                    end
+                    
+                    task.wait(0) -- Delay Time (ใส่ 0 คือเร็วสุด)
+                end
+                print("🛑 หยุดระบบ AutoFarm")
+            end)
+        else
+            print("🛑 Toggle ปิดการทำงาน")
+        end
+    end
+})
+
+
+
+
+
+   
+end
+
+
+
+
+
+
+
+
+
+
+-- */  Other  /* --
+do
+    local InviteCode = "dUnSsjeUDF"
+    local DiscordAPI = "https://discord.com/api/v10/invites/" .. InviteCode .. "?with_counts=true&with_expiration=true"
+
+    local Response = WindUI.cloneref(game:GetService("HttpService")):JSONDecode(WindUI.Creator.Request({
+        Url = DiscordAPI,
+        Method = "GET",
+        Headers = {
+            ["User-Agent"] = "WindUI/Example",
+            ["Accept"] = "application/json"
+        }
+    }).Body)
+    
+    local DiscordTab = OtherSection:Tab({
+        Title = "Discord",
+        Icon = "rbxassetid://121030902371363",
+    })
+    
+    if Response and Response.guild then
+        DiscordTab:Section({
+            Title = "Join our Discord server!",
+            TextSize = 20,
+        })
+        local DiscordServerParagraph = DiscordTab:Paragraph({
+            Title = tostring(Response.guild.name),
+            Desc = tostring(Response.guild.description),
+            Image = "https://cdn.discordapp.com/icons/" .. Response.guild.id .. "/" .. Response.guild.icon .. ".png?size=1024",
+            Thumbnail = "https://cdn.discordapp.com/banners/1300692552005189632/35981388401406a4b7dffd6f447a64c4.png?size=512",
+            ImageSize = 48,
+            Buttons = {
+                {
+                    Title = "Copy link",
+                    Icon = "link",
+                    Callback = function()
+                        setclipboard("https://discord.gg/" .. InviteCode)
+                    end
+                }
+            }
+        })
+        
+    end
+end
