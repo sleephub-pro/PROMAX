@@ -415,8 +415,16 @@ do
 
 
 
+
+-- Auto-buy selected eggs when they appear in workspace.CoreObjects.Eggs
+-- รวมโค้ดเดียวจบตามที่ขอ (ไม่แยกโค้ด, ซื้อทันทีเมื่อเจอ / แสดงใน workspace.CoreObjects.Eggs)
+-- ใช้ร่วมกับ UI ที่มี OverviewSection1 / OverviewSection2 ตามโค้ดเดิม
+
 -- ===================== SERVICES =====================
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = workspace
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
 -- ===================== DATA =====================
 local itemRarity = {
@@ -432,132 +440,238 @@ local itemRarity = {
     ["Event"] = {"Tralalelodon", "Orcadon", "Orcadon", "Blingo Tentacolo", "Eviledon", "Moby bobby"},
     ["OG"] = {"Ganganzelli Trulala", "Strawberry Elephant", "Crystalini Ananassini", "Meowl", "Spiuniru Golubiru"},
     ["Divine"] = {"Dragon Cannelloni", "Chicleteira Bicicleteira", "Crabbo Limonetta", "Alessio", "Mariachi Skeletoni", "Piccione Maccina"},
-	["GOD"] = {"Money Money Man", "Karloo"},
+    ["GOD"] = {"Money Money Man", "Karloo"},
     ["Admin"] = {"Admin Egg", "Taco Block"}
 }
 
--- ===================== STATE =====================
-local selectedRarity = {}
-local selectedBuff = nil      -- nil / "Gold" / "Diamond"
-local selectedItems = {}
-local running = false
-local EggDropdown
+-- รายชื่อบัฟทั้งหมดตามที่ผู้ใช้ให้มา
+local allBuffs = {
+    "Snowy","Sakura","Tornado","Stinky","Lightning","Taco","Radioactive","Galaxy",
+    "Magmatic","Fishing Master","Disco","Gold","Diamond"
+}
 
--- ===================== FUNCTIONS =====================
-local function buildEggList()
+-- ===================== STATE =====================
+local selectedRarity = {}      -- list of rarities (จาก Dropdown)
+local selectedBuffs = {}       -- list of buff strings (จาก UI multi select)
+local selectedItems = {}       -- list of specific egg names (จาก EggDropdown Multi)
+local running = false
+local EggDropdown = nil
+local childAddedConn = nil
+local eggsFolder = Workspace:WaitForChild("CoreObjects"):WaitForChild("Eggs")
+local buyDebounce = {}         -- ป้องกันซื้อซ้ำหลายครั้งภายในวินาทีเดียว
+
+-- ===================== HELPERS =====================
+
+-- สร้าง list ของชื่อไข่ตาม rarity ที่เลือก (plain base names, ไม่มีบัฟต่อหน้า)
+local function buildEggListFromRarity()
     local list = {}
     for _, rarity in ipairs(selectedRarity) do
         local items = itemRarity[rarity]
         if items then
             for _, name in ipairs(items) do
-                if selectedBuff then
-                    table.insert(list, selectedBuff .. " " .. name)
-                else
-                    table.insert(list, name)
-                end
+                table.insert(list, name)
             end
         end
     end
     return list
 end
 
--- ===================== UI =====================
+-- คืนค่า list ของชื่อที่ต้องจับ (ถ้ามีการเลือกใน EggDropdown ใช้ selectedItems; ถ้าไม่มีแต่เลือก rarity ให้ใช้จาก rarity)
+local function getTrackedItems()
+    if selectedItems and #selectedItems > 0 then
+        return selectedItems
+    end
+    return buildEggListFromRarity()
+end
 
--- เลือก Rarity
+-- ตรวจสอบว่า eggName ตรงกับ item ที่เราเฝ้าจับหรือไม่ (รองรับการมีบัฟอยู่ในชื่อ)
+local function eggMatches(eggName)
+    if not eggName or eggName == "" then return false end
+    local lowerEgg = string.lower(eggName)
+    local targets = getTrackedItems()
+    if not targets or #targets == 0 then
+        return false
+    end
+
+    for _, t in ipairs(targets) do
+        if t and t ~= "" then
+            local lowerT = string.lower(t)
+            -- ถ้า eggName มี target เป็น substring (รองรับชื่อที่มีบัฟนำหน้า/สลับตำแหน่ง)
+            if string.find(lowerEgg, lowerT, 1, true) then
+                -- ถ้ามีการเลือกบัฟ ให้ตรวจสอบว่าชื่อไข่มีบัฟใดที่เราเลือกอย่างน้อยหนึ่งตัว
+                if selectedBuffs and #selectedBuffs > 0 then
+                    for _, b in ipairs(selectedBuffs) do
+                        if b and b ~= "" then
+                            local lowerB = string.lower(b)
+                            if string.find(lowerEgg, lowerB, 1, true) then
+                                return true
+                            end
+                        end
+                    end
+                    -- ถ้า loop บัฟจบแล้วไม่มีบัฟใดตรง -> ไม่ซื้อ
+                    return false
+                else
+                    -- ถ้าไม่เลือกบัฟ -> ซื้อทันทีเมื่อชื่อไข่ตรง
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+-- ฟังก์ชันสั่งซื้อ (ใช้ RF/BuyEgg ตามที่ให้มา)
+local function buyEggByName(name)
+    if not name then return end
+    -- ปรับ debounce ต่อชื่อ เพื่อไม่ให้เรียกหลายครั้งต่อเวลาอันสั้น
+    local now = tick()
+    if buyDebounce[name] and now - buyDebounce[name] < 1.2 then
+        return
+    end
+    buyDebounce[name] = now
+
+    -- เตรียม path ไปยัง RemoteFunction (ตามตัวอย่างเดิม)
+    local success, err = pcall(function()
+        local shared = ReplicatedStorage:WaitForChild("Shared")
+        local packages = shared:WaitForChild("Packages")
+        local networker = packages:WaitForChild("Networker")
+        local rf = networker:WaitForChild("RF/BuyEgg")
+        -- ส่งชื่อที่ปรากฏใน workspace (รวมบัฟที่มีอยู่ในชื่อ) เพื่อให้เซิร์ฟเวอร์ซื้อให้
+        rf:InvokeServer(name)
+    end)
+    if not success then
+        warn("BuyEgg invoke failed:", err)
+    end
+end
+
+-- ตรวจสอบและซื้อไข่เมื่อเจอ object (ทันทีกดพบหรือแสดงใน workspace)
+local function handleEggInstance(inst)
+    if not inst or not inst.Name then return end
+    if eggMatches(inst.Name) then
+        -- ถ้าเป็น instance ที่มีชื่อและตรงกับเงื่อนไข ให้ซื้อทันที
+        buyEggByName(inst.Name)
+    end
+end
+
+-- สแกนไข่ที่มีอยู่ตอนนี้แล้วซื้อถ้าตรง
+local function scanExistingEggs()
+    for _, child in ipairs(eggsFolder:GetChildren()) do
+        -- บางเกมอาจเก็บข้อมูลชื่อใน StringValue ภายใน object แทนตัวชื่อนี้ โค้ดนี้ใช้ Name ของ instance โดยตรงตามที่ผู้ใช้ระบุ
+        pcall(function() handleEggInstance(child) end)
+    end
+end
+
+-- เริ่มการเฝ้าดู (เชื่อมต่อ ChildAdded)
+local function startWatcher()
+    if running then return end
+    running = true
+    -- สแกนที่มีอยู่ก่อน
+    scanExistingEggs()
+    -- เชื่อมต่อ event เพื่อจับไข่ที่เกิดใหม่หรือแสดง
+    childAddedConn = eggsFolder.ChildAdded:Connect(function(child)
+        -- รอสั้นๆ เผื่อชื่อ/ข้อมูลถูกเซ็ตหลังมาที (แต่ไม่ต้องรอนาน)
+        wait(0.05)
+        pcall(function() handleEggInstance(child) end)
+    end)
+end
+
+-- หยุดการเฝ้าดู
+local function stopWatcher()
+    running = false
+    if childAddedConn then
+        childAddedConn:Disconnect()
+        childAddedConn = nil
+    end
+end
+
+-- ===================== UI =====================
+-- (สมมติว่ามี OverviewSection1 และ OverviewSection2 อยู่แล้วตามโค้ดของผู้ใช้)
+-- เลือก Rarity (multi)
 OverviewSection2:Dropdown({
     Title = "เลือกระดับ (Rarity)",
     Values = {"Common","Uncommon","Rare","Epic","Legendary","XMAS 25","Mythic","Secret","Exotic","Event","OG","Divine","Admin"},
     Multi = true,
     Callback = function(v)
-        selectedRarity = v
+        selectedRarity = v or {}
         selectedItems = {}
         if EggDropdown then
-            EggDropdown:Refresh(buildEggList(), true)
+            EggDropdown:Refresh(buildEggListFromRarity(), true)
         end
     end
 })
 
--- รายชื่อไข่
+-- รายชื่อไข่ (generated จาก rarity หากผู้ใช้เลือก) / ผู้ใช้ยังสามารถเลือกไข่เองได้
 EggDropdown = OverviewSection2:Dropdown({
     Title = "Multi Dropdown",
     Values = {},
     AllowNone = true,
     Multi = true,
     Callback = function(v)
-        selectedItems = v
+        selectedItems = v or {}
     end
 })
 
--- ===================== AUTO BUY =====================
--- ===================== AUTO BUY =====================
-OverviewSection2:Toggle({
-    Title = "Auto Buy Egg",
+-- เลือกบัฟ (multi) -- ถ้าต้องการให้ซื้อเมื่อมีบัฟใดๆ ให้เลือกอย่างน้อย 1 อัน
+OverviewSection2:Dropdown({
+    Title = "เลือกบัฟ",
+    Values = allBuffs,
+    Multi = true,
     Callback = function(v)
-        if running == v then return end
+        selectedBuffs = v or {}
+    end
+})
+
+-- Toggle เริ่ม/หยุด (ซื้อทันทีเมื่อเจอหรือแสดงใน workspace.CoreObjects.Eggs)
+OverviewSection2:Toggle({
+    Title = "ออโต้ซื้อไข่",
+    Callback = function(v)
+        if v then
+            startWatcher()
+        else
+            stopWatcher()
+        end
+    end
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+local running = false
+local RF = game:GetService("ReplicatedStorage")
+    :WaitForChild("Shared")
+    :WaitForChild("Packages")
+    :WaitForChild("Networker")
+    :WaitForChild("RF/RequestEggSpawn")
+
+OverviewSection2:Toggle({
+    Title = "ออโต้เลื่อนไข่",
+    Callback = function(v)
         running = v
-        if not running then return end
-
-        task.spawn(function()
-            local remoteSpawn = ReplicatedStorage.Shared.Packages.Networker["RF/RequestEggSpawn"]
-            local remoteBuy   = ReplicatedStorage.Shared.Packages.Networker["RF/BuyEgg"]
-
-            -- กำหนดบัพที่ต้องการซื้อทั้งหมด
-            -- ถ้าเกมใช้ชื่อแบบไม่มีบัพเป็นปกติ ให้ใส่ "" เป็นตัวแรก
-            local BUFF_PREFIXES = { "", "Gold ", "Diamond " }
-
-            while running do
-                if #selectedItems == 0 then
-                    task.wait(0.05)
-					continue
-                end
-
-                -- รวมชื่อไข่ทุกบัพ
-                local buyList = {}
-                for _, baseName in ipairs(selectedItems) do
-                    for _, prefix in ipairs(BUFF_PREFIXES) do
-                        table.insert(buyList, prefix .. baseName)
-                    end
-                end
-
-                -- ซื้อแบบขนาน (เร็ว)
-                local maxConcurrent = 12
-                local active, completed = 0, 0
-                local total = #buyList
-
-                local function buy(name)
-                    task.spawn(function()
-                        while running and active >= maxConcurrent do
-                            task.wait(0.005)
-                        end
-                        if not running then return end
-                        active += 1
-                        pcall(function()
-                            remoteBuy:InvokeServer(name, 1)
-                        end)
-                        active -= 1
-                        completed += 1
+        if v then
+            task.spawn(function()
+                while running do
+                    pcall(function()
+                        RF:InvokeServer()
                     end)
-                end
-
-                for _, name in ipairs(buyList) do
-                    buy(name)
-                end
-
-                -- รอให้ซื้อครบทุกบัพก่อน
-                while running and completed < total do
                     task.wait(0.01)
                 end
-
-                -- ค่อย Spawn หลังซื้อครบ
-                pcall(function()
-                    remoteSpawn:InvokeServer()
-                end)
-
-                task.wait(0.06)
-            end
-        end)
+            end)
+        end
     end
 })
+
+
+
 
 
 
