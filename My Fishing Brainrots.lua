@@ -630,101 +630,130 @@ OverviewSection1:Toggle({
 
 
 
+
+
+
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
 local running = false
 
+-- รายการไอเทมที่อนุญาตให้วาง
+local itemRarity = {
+    ["Common"] = {"Tic Tac Sahur", "Capuchino Assasino"},
+    ["Uncommon"] = {"Pipi Potato", "Capuchina Ballerina"},
+    ["Rare"] = {"Salamino Penguino", "Fluriflura", "Tim Cheese"},
+    ["Epic"] = {"Orangutini Ananasini", "Brr Brr Patapim", "Udin Din Din Din Dun", "Pipi Kiwi"},
+    ["Legendary"] = {"Chef Crabracadabra", "Boneca Ambalabu", "Cacto Hipopotamo", "Sigma Boy"},
+    ["XMAS 25"] = {"Ginger Sekolah", "Ginger 67", "Elf Elf Sahur", "Santa Hotspot"},
+    ["Mythic"] = {"Gorillo Watermelondrillo", "Tric Trac Barabum", "Avocadini Guffo", "Quivioli Ameleonni", "Friggo Camelo", "Pakrahmatmamat"},
+    ["Secret"] = {"La Vacca Saturnita", "Tic Tac Sahur", "Pot Hotspot", "Job Job Sahur", "La Grande Combination"},
+    ["Exotic"] = {"67", "Esok Sekolah", "Girafa Celestre", "Chillin Chilli", "Swag Soda", "Matteo", "Strawberelli Flamingelli", "Ketupat Kepat"},
+    ["Event"] = {"Tralalelodon", "Orcadon", "Blingo Tentacolo", "Eviledon", "Moby bobby"},
+    ["OG"] = {"Ganganzelli Trulala", "Strawberry Elephant", "Crystalini Ananassini", "Meowl", "Spiuniru Golubiru"},
+    ["Divine"] = {"Dragon Cannelloni", "Chicleteira Bicicleteira", "Crabbo Limonetta", "Alessio", "Mariachi Skeletoni", "Piccione Maccina"},
+    ["GOD"] = {"Money Money Man", "Karloo"},
+    ["Admin"] = {"Admin Egg", "Taco Block"}
+}
+
+-- ฟังก์ชันตรวจสอบว่าชื่อไอเทมอยู่ในลิสต์หรือไม่
+local function isItemInList(itemName)
+    for rarity, items in pairs(itemRarity) do
+        if table.find(items, itemName) then
+            return true
+        end
+    end
+    return false
+end
+
 local function getMyPlot()
-	for _, plot in ipairs(workspace.CoreObjects.Plots:GetChildren()) do
-		local owner = plot:GetAttribute("Owner")
-		if owner == LocalPlayer.Name then
-			return plot
-		end
-	end
+    for _, plot in ipairs(workspace.CoreObjects.Plots:GetChildren()) do
+        local owner = plot:GetAttribute("Owner")
+        if owner == LocalPlayer.Name then
+            return plot
+        end
+    end
 end
 
 local function getNumberFromStand(name)
-	return tonumber(name:match("%d+"))
+    return tonumber(name:match("%d+"))
 end
 
 local function getValidStand(plot)
-	local standsFolder = plot:FindFirstChild("Stands")
-	if not standsFolder then return nil end
+    local standsFolder = plot:FindFirstChild("Stands")
+    if not standsFolder then return nil end
 
-	local stands = {}
+    local stands = {}
+    for _, stand in ipairs(standsFolder:GetChildren()) do
+        if stand.Name:match("^Stand%d+$") then
+            table.insert(stands, stand)
+        end
+    end
 
-	for _, stand in ipairs(standsFolder:GetChildren()) do
-		if stand.Name:match("^Stand%d+$") then
-			table.insert(stands, stand)
-		end
-	end
+    table.sort(stands, function(a, b)
+        return getNumberFromStand(a.Name) < getNumberFromStand(b.Name)
+    end)
 
-	table.sort(stands, function(a, b)
-		return getNumberFromStand(a.Name) < getNumberFromStand(b.Name)
-	end)
+    for _, stand in ipairs(stands) do
+        if stand:FindFirstChildWhichIsA("Model") then
+            continue
+        end
 
-	for _, stand in ipairs(stands) do
-		-- ❌ ถ้ามี Model อยู่แล้ว ข้าม
-		if stand:FindFirstChildWhichIsA("Model") then
-			continue
-		end
+        local dock = stand:FindFirstChild("Models") and stand.Models:FindFirstChild("Dock")
+        if dock and dock:FindFirstChild("StandHighlight") then
+            break
+        end
 
-		local dock = stand:FindFirstChild("Models")
-			and stand.Models:FindFirstChild("Dock")
-
-		-- ถ้าเจอ StandHighlight ให้หยุดทันที (Stand ต่อไปไม่เอา)
-		if dock and dock:FindFirstChild("StandHighlight") then
-			break
-		end
-
-		return stand
-	end
+        return stand
+    end
 end
 
+-- ปรับปรุง: เช็ค Handle และ ชื่อไอเทมจากตาราง
 local function getToolWithItem()
-	for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
-		if tool:IsA("Tool") and #tool:GetChildren() > 0 then
-			return tool
-		end
-	end
+    for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
+        if tool:IsA("Tool") and tool:FindFirstChild("Handle") then
+            if isItemInList(tool.Name) then
+                return tool
+            end
+        end
+    end
 end
 
 OverviewSection1:Toggle({
-	Title = "ออโต้วางไข่",
-	Callback = function(v)
-		running = v
+    Title = "ออโต้วางไข่",
+    Callback = function(v)
+        running = v
 
-		task.spawn(function()
-			while running do
-				local plot = getMyPlot()
-				if plot then
-					local stand = getValidStand(plot)
-					local tool = getToolWithItem()
+        task.spawn(function()
+            while running do
+                local plot = getMyPlot()
+                if plot then
+                    local stand = getValidStand(plot)
+                    local tool = getToolWithItem()
 
-					if stand and tool then
-						-- Equip Tool
-						tool.Parent = LocalPlayer.Character
+                    if stand and tool then
+                        -- Equip Tool
+                        tool.Parent = LocalPlayer.Character
 
-						local args = {
-							stand.Name,
-							tool.Name
-						}
+                        local args = {
+                            stand.Name,
+                            tool.Name
+                        }
 
-						ReplicatedStorage
-							:WaitForChild("Shared")
-							:WaitForChild("Packages")
-							:WaitForChild("Networker")
-							:WaitForChild("RF/PlaceEgg")
-							:InvokeServer(unpack(args))
-					end
-				end
-
-				task.wait(0.1)
-			end
-		end)
-	end
+                        ReplicatedStorage
+                            :WaitForChild("Shared")
+                            :WaitForChild("Packages")
+                            :WaitForChild("Networker")
+                            :WaitForChild("RF/PlaceEgg")
+                            :InvokeServer(unpack(args))
+                    end
+                end
+                task.wait(0.1)
+            end
+        end)
+    end
 })
 
 
