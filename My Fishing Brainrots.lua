@@ -416,11 +416,6 @@ do
 
 
 
--- Auto-buy selected eggs when they appear in workspace.CoreObjects.Eggs
--- รวมโค้ดเดียวจบตามที่ขอ (ไม่แยกโค้ด, ซื้อทันทีเมื่อเจอ / แสดงใน workspace.CoreObjects.Eggs)
--- ใช้ร่วมกับ UI ที่มี OverviewSection1 / OverviewSection2 ตามโค้ดเดิม
-
--- ===================== SERVICES =====================
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = workspace
 local Players = game:GetService("Players")
@@ -436,7 +431,7 @@ local itemRarity = {
     ["XMAS 25"] = {"Ginger Sekolah", "Ginger 67", "Elf Elf Sahur", "Santa Hotspot"},
     ["Mythic"] = {"Gorillo Watermelondrillo", "Tric Trac Barabum", "Avocadini Guffo", "Quivioli Ameleonni", "Friggo Camelo", "Pakrahmatmamat"},
     ["Secret"] = {"La Vacca Saturnita", "Tic Tac Sahur", "Pot Hotspot", "Job Job Sahur", "La Grande Combination"},
-    ["Exotic"] = {"67", "Esok Sekolah", "Girafa Celestre", "Chillin Chilli", "Swag Soda", "Matteo", "Strawberelli Flamingelli", "Ketupat Kepat", 'Torrtuginni Dragonfrutini'},
+    ["Exotic"] = {"67", "Esok Sekolah", "Girafa Celestre", "Chillin Chilli", "Swag Soda", "Matteo", "Strawberelli Flamingelli", "Ketupat Kepat"},
     ["Event"] = {"Tralalelodon", "Orcadon", "Orcadon", "Blingo Tentacolo", "Eviledon", "Moby bobby"},
     ["OG"] = {"Ganganzelli Trulala", "Strawberry Elephant", "Crystalini Ananassini", "Meowl", "Spiuniru Golubiru"},
     ["Divine"] = {"Dragon Cannelloni", "Chicleteira Bicicleteira", "Crabbo Limonetta", "Alessio", "Mariachi Skeletoni", "Piccione Maccina"},
@@ -450,6 +445,21 @@ local allBuffs = {
     "Magmatic","Fishing Master","Disco","Gold","Diamond"
 }
 
+-- ===================== FILTER CONFIG =====================
+local FILTERED_NAMES = {"Gold", "Diamond"} -- ชื่อที่ต้องการกรองออกจาก Dropdown
+
+-- ตรวจสอบว่าชื่ออยู่ในรายการกรองหรือไม่
+local function isFilteredName(name)
+    if not name then return false end
+    local lowerName = string.lower(name)
+    for _, filter in ipairs(FILTERED_NAMES) do
+        if string.find(lowerName, string.lower(filter), 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
 -- ===================== STATE =====================
 local selectedRarity = {}      -- list of rarities (จาก Dropdown)
 local selectedBuffs = {}       -- list of buff strings (จาก UI multi select)
@@ -460,16 +470,144 @@ local childAddedConn = nil
 local eggsFolder = Workspace:WaitForChild("CoreObjects"):WaitForChild("Eggs")
 local buyDebounce = {}         -- ป้องกันซื้อซ้ำหลายครั้งภายในวินาทีเดียว
 
+-- เก็บการเชื่อมต่อ GUI เพื่อปิดเมื่อจำเป็น
+local guiConns = {}
+
+-- ช่วย: หา key ใน itemRarity โดยเทียบแบบ case-insensitive
+local function findRarityKeyByName(name)
+    if not name then return nil end
+    local lower = string.lower(name):gsub("^%s*(.-)%s*$", "%1") -- trim
+    for k, _ in pairs(itemRarity) do
+        if string.lower(k) == lower then
+            return k
+        end
+    end
+    return nil
+end
+
+-- เช็คว่าชื่ออยู่แล้วหรือยังในตาราง
+local function contains(tbl, value)
+    if not tbl then return false end
+    for _, v in ipairs(tbl) do
+        if v == value then return true end
+    end
+    return false
+end
+
+-- เพิ่ม frameName ลงใน rarity (ถ้ายังไม่มี) - กรอง Gold/Diamond ออกด้วย
+local function addFrameNameToRarity(frameName, rarityName)
+    if not frameName or not rarityName then return end
+    -- กรองชื่อที่มี Gold หรือ Diamond
+    if isFilteredName(frameName) then return end
+    local key = findRarityKeyByName(rarityName)
+    if not key then return end
+    if not itemRarity[key] then itemRarity[key] = {} end
+    if not contains(itemRarity[key], frameName) then
+        table.insert(itemRarity[key], frameName)
+    end
+end
+
+-- เอาออก (เมื่อ frame ถูกลบ)
+local function removeFrameNameFromAllRarities(frameName)
+    if not frameName then return end
+    for k, t in pairs(itemRarity) do
+        for i = #t, 1, -1 do
+            if t[i] == frameName then
+                table.remove(t, i)
+            end
+        end
+    end
+end
+
+-- อ่านค่า rarity จากโครงสร้าง Frame แบบปลอดภัย
+local function readRarityTextFromFrame(frame)
+    if not frame then return nil end
+    -- ตามที่ผู้ใช้บอก path: frame.Rarity.Text.Text
+    local ok, rarityText = pcall(function()
+        if frame:FindFirstChild("Rarity") then
+            local r = frame.Rarity
+            if r:FindFirstChild("Text") and r.Text:IsA("TextLabel") then
+                return r.Text.Text
+            elseif r:IsA("TextLabel") then
+                return r.Text -- ถ้า Rarity เป็น TextLabel เอง (fallback)
+            end
+        end
+        -- ถ้าโครงสร้างต่างไป ลองหาลูกที่เป็น TextLabel และชื่อมีคำว่า "Rarity" หรือ "rarity"
+        for _, child in ipairs(frame:GetDescendants()) do
+            if child:IsA("TextLabel") and string.find(string.lower(child.Name), "rar") then
+                return child.Text
+            end
+        end
+        return nil
+    end)
+    if ok then return rarityText else return nil end
+end
+
+-- สแกน PlayerGui.Main.Frames.Index.ScrollingFrame.Brainrots และเพิ่มชื่อ Frame ลงใน itemRarity ตาม Rarity.Text.Text
+local function scanPlayerGuiBrainrotsAndAdd()
+    local ok, playerGui = pcall(function() return LocalPlayer:WaitForChild("PlayerGui", 2) end)
+    if not ok or not playerGui then return end
+
+    local main = playerGui:FindFirstChild("Main")
+    if not main then return end
+    local frames = main:FindFirstChild("Frames")
+    if not frames then return end
+    local index = frames:FindFirstChild("Index")
+    if not index then return end
+    local scrolling = index:FindFirstChild("ScrollingFrame")
+    if not scrolling then return end
+    local brainrots = scrolling:FindFirstChild("Brainrots")
+    if not brainrots then return end
+
+    -- สแกนของที่มีตอนเริ่ม
+    for _, child in ipairs(brainrots:GetChildren()) do
+        local rarityText = readRarityTextFromFrame(child)
+        if rarityText and child.Name then
+            addFrameNameToRarity(child.Name, rarityText)
+        end
+    end
+
+    -- เชื่อมต่อ ChildAdded / ChildRemoved เพื่ออัปเดตแบบไดนามิก
+    if not guiConns.brainrotsAddedConn then
+        guiConns.brainrotsAddedConn = brainrots.ChildAdded:Connect(function(child)
+            -- รอเล็กน้อยเผื่อ UI ถูกเซ็ตค่า
+            wait(0.05)
+            local rarityText = readRarityTextFromFrame(child)
+            if rarityText and child.Name then
+                addFrameNameToRarity(child.Name, rarityText)
+                -- ถ้ามี EggDropdown ให้รีเฟรช (จะกรอง Gold/Diamond อัตโนมัติผ่าน buildEggListFromRarity)
+                if EggDropdown then
+                    EggDropdown:Refresh(buildEggListFromRarity(), true)
+                end
+            end
+        end)
+    end
+
+    if not guiConns.brainrotsRemovedConn then
+        guiConns.brainrotsRemovedConn = brainrots.ChildRemoved:Connect(function(child)
+            if child and child.Name then
+                removeFrameNameFromAllRarities(child.Name)
+                if EggDropdown then
+                    EggDropdown:Refresh(buildEggListFromRarity(), true)
+                end
+            end
+        end)
+    end
+end
+
 -- ===================== HELPERS =====================
 
--- สร้าง list ของชื่อไข่ตาม rarity ที่เลือก (plain base names, ไม่มีบัฟต่อหน้า)
+-- สร้าง list ของชื่อไข่ตาม rarity ที่เลือก (plain base names, ไม่มีบัฟต่อหน้า) - กรอง Gold/Diamond ออก
 local function buildEggListFromRarity()
     local list = {}
     for _, rarity in ipairs(selectedRarity) do
         local items = itemRarity[rarity]
         if items then
             for _, name in ipairs(items) do
-                table.insert(list, name)
+                -- กรองชื่อที่มี Gold หรือ Diamond
+                if not isFilteredName(name) and not contains(list, name) then
+                    table.insert(list, name)
+                end
             end
         end
     end
@@ -548,7 +686,6 @@ end
 local function handleEggInstance(inst)
     if not inst or not inst.Name then return end
     if eggMatches(inst.Name) then
-        -- ถ้าเป็น instance ที่มีชื่อและตรงกับเงื่อนไข ให้ซื้อทันที
         buyEggByName(inst.Name)
     end
 end
@@ -556,7 +693,6 @@ end
 -- สแกนไข่ที่มีอยู่ตอนนี้แล้วซื้อถ้าตรง
 local function scanExistingEggs()
     for _, child in ipairs(eggsFolder:GetChildren()) do
-        -- บางเกมอาจเก็บข้อมูลชื่อใน StringValue ภายใน object แทนตัวชื่อนี้ โค้ดนี้ใช้ Name ของ instance โดยตรงตามที่ผู้ใช้ระบุ
         pcall(function() handleEggInstance(child) end)
     end
 end
@@ -565,11 +701,8 @@ end
 local function startWatcher()
     if running then return end
     running = true
-    -- สแกนที่มีอยู่ก่อน
     scanExistingEggs()
-    -- เชื่อมต่อ event เพื่อจับไข่ที่เกิดใหม่หรือแสดง
     childAddedConn = eggsFolder.ChildAdded:Connect(function(child)
-        -- รอสั้นๆ เผื่อชื่อ/ข้อมูลถูกเซ็ตหลังมาที (แต่ไม่ต้องรอนาน)
         wait(0.05)
         pcall(function() handleEggInstance(child) end)
     end)
@@ -585,7 +718,7 @@ local function stopWatcher()
 end
 
 -- ===================== UI =====================
--- (สมมติว่ามี OverviewSection1 และ OverviewSection2 อยู่แล้วตามโค้ดของผู้ใช้)
+
 -- เลือก Rarity (multi)
 OverviewSection2:Dropdown({
     Title = "เลือกระดับ (Rarity)",
@@ -600,9 +733,9 @@ OverviewSection2:Dropdown({
     end
 })
 
--- รายชื่อไข่ (generated จาก rarity หากผู้ใช้เลือก) / ผู้ใช้ยังสามารถเลือกไข่เองได้
+-- รายชื่อไข่ (generated จาก rarity หากผู้ใช้เลือก) / กรอง Gold และ Diamond ออกอัตโนมัติ
 EggDropdown = OverviewSection2:Dropdown({
-    Title = "Multi Dropdown",
+    Title = "เลือกไข่",
     Values = {},
     AllowNone = true,
     Multi = true,
@@ -611,7 +744,7 @@ EggDropdown = OverviewSection2:Dropdown({
     end
 })
 
--- เลือกบัฟ (multi) -- ถ้าต้องการให้ซื้อเมื่อมีบัฟใดๆ ให้เลือกอย่างน้อย 1 อัน
+-- เลือกบัฟ (Buffs)
 OverviewSection2:Dropdown({
     Title = "เลือกบัฟ",
     Values = allBuffs,
@@ -632,6 +765,9 @@ OverviewSection2:Toggle({
         end
     end
 })
+
+-- เรียกสแกน GUI ตอนเริ่มเพื่อโหลดข้อมูลไข่ (จะกรอง Gold/Diamond อัตโนมัติ)
+scanPlayerGuiBrainrotsAndAdd()
 
 
 
@@ -663,7 +799,7 @@ OverviewSection2:Toggle({
                     pcall(function()
                         RF:InvokeServer()
                     end)
-                    task.wait(0.01)
+                    task.wait(0)
                 end
             end)
         end
@@ -754,38 +890,126 @@ local LocalPlayer = Players.LocalPlayer
 
 local running = false
 
--- รายการไอเทมที่อนุญาตให้วาง
-local itemRarity = {
-    ["Common"] = {"Tic Tac Sahur", "Capuchino Assasino"},
-    ["Uncommon"] = {"Pipi Potato", "Capuchina Ballerina"},
-    ["Rare"] = {"Salamino Penguino", "Fluriflura", "Tim Cheese"},
-    ["Epic"] = {"Orangutini Ananasini", "Brr Brr Patapim", "Udin Din Din Din Dun", "Pipi Kiwi"},
-    ["Legendary"] = {"Chef Crabracadabra", "Boneca Ambalabu", "Cacto Hipopotamo", "Sigma Boy"},
-    ["XMAS 25"] = {"Ginger Sekolah", "Ginger 67", "Elf Elf Sahur", "Santa Hotspot"},
-    ["Mythic"] = {"Gorillo Watermelondrillo", "Tric Trac Barabum", "Avocadini Guffo", "Quivioli Ameleonni", "Friggo Camelo", "Pakrahmatmamat"},
-    ["Secret"] = {"La Vacca Saturnita", "Tic Tac Sahur", "Pot Hotspot", "Job Job Sahur", "La Grande Combination"},
-    ["Exotic"] = {"Torrtuginni Dragonfrutini", "67", "Esok Sekolah", "Girafa Celestre", "Chillin Chilli", "Swag Soda", "Matteo", "Strawberelli Flamingelli", "Ketupat Kepat"},
-    ["Event"] = {"Tralalelodon", "Orcadon", "Blingo Tentacolo", "Eviledon", "Moby bobby"},
-    ["OG"] = {"Ganganzelli Trulala", "Strawberry Elephant", "Crystalini Ananassini", "Meowl", "Spiuniru Golubiru"},
-    ["Divine"] = {"Dragon Cannelloni", "Chicleteira Bicicleteira", "Crabbo Limonetta", "Alessio", "Mariachi Skeletoni", "Piccione Maccina"},
-    ["GOD"] = {"Money Money Man", "Karloo"},
-    ["Admin"] = {"Admin Egg", "Taco Block"}
+-- ===================== ITEM LIST =====================
+local itemList = {
+    "Template",
+    "Buff Tung Tung Sahur",
+    "Cavallo Virtuoso",
+    "Moby Bobby",
+    "67",
+    "Mariachi Skeletoni",
+    "Quivioli Ameleonni",
+    "Santteo",
+    "Karkerkar Kurkur",
+    "Jolly Sahur",
+    "La Rainbow",
+    "Blingo Tentacolo",
+    "Nooo My Hotspot",
+    "Meowl",
+    "Candy Caney",
+    "Santa Hotspot",
+    "Fluriflura",
+    "Brr Brr Patapim",
+    "Festive 67",
+    "Girafa Celestre",
+    "Pot Hotspot",
+    "Money Money Man",
+    "Tric Trac Barabum",
+    "Orcadon",
+    "Gorillo Watermelondrillo",
+    "Esok Sekolah",
+    "Cocofanto Elefanto",
+    "Tukanno Bananno",
+    "Karloo",
+    "Spiuniru Golubiru",
+    "Mastodontico Telepiedone",
+    "Swag Soda",
+    "Boneca Ambalabu",
+    "Crystalini Ananassini",
+    "Ginger Sekolah",
+    "Chillin Chilli",
+    "Presento Camelo",
+    "Buff Tim Cheese",
+    "La Cucaracha",
+    "Rainbow Santteo",
+    "Salamino Penguino",
+    "Cooki",
+    "Eviledon",
+    "Capi Taco",
+    "Cacto Hipopotamo",
+    "Capuchina Ballerina",
+    "Friggo Camelo",
+    "Bunito Bunito Spinito",
+    "Green Mean Sahur",
+    "La Christmas Combination",
+    "Tuesday Hand",
+    "Buff Gorillo Watermelondrillo",
+    "Chicleteira Bicicleteira",
+    "RAAAAAH",
+    "Capuchino Assasino",
+    "Ogre Ogerini",
+    "Skibo Boi",
+    "Ganganzelli Trulala",
+    "Smurf Cat",
+    "Tacorita Tacorito",
+    "Joe Pork",
+    "Udin Din Din Din Dun",
+    "El Pepe",
+    "25",
+    "Tim Cheese",
+    "Buff Orangutini Ananasini",
+    "Ketupat Kepat",
+    "Buff Fluriflura",
+    "2026",
+    "Elf Elf Sahur",
+    "Dragon Cannelloni",
+    "Ginger 67",
+    "Bandito Axolito",
+    "Rainbow Cannelloni",
+    "Pipi Kiwi",
+    "Orangutini Ananasini",
+    "Tralalelodon",
+    "Noobi Pizzarini",
+    "Chef Crabracadabra",
+    "Tung Tung Sahur",
+    "Torrtuginni Dragonfrutini",
+    "Crabbo Limonetta",
+    "Piccione Maccina",
+    "Alessio",
+    "Pakrahmatmamat",
+    "La Vacca Presento",
+    "Dul Dul Dul",
+    "Strawberry Elephant",
+    "Cuadramat & Pak",
+    "Rainbow Chillin",
+    "Job Job Sahur",
+    "Cocosini Mama",
+    "Sigma Boy",
+    "Avocadini Guffo",
+    "Matteo",
+    "Tic Tac Sahur",
+    "Glorbo Fruttodrillo",
+    "La Grande Combination",
+    "La Vacca Saturnita",
+    "Strawberelli Flamingelli",
+    "Pipi Potato"
 }
 
--- ฟังก์ชันตรวจสอบว่าชื่อไอเทมอยู่ในลิสต์หรือไม่
-local function isItemInList(itemName)
-    for rarity, items in pairs(itemRarity) do
-        if table.find(items, itemName) then
+-- ===================== CHECK NAME (IGNORE PREFIX) =====================
+local function isItemAllowed(toolName)
+    toolName = toolName:lower()
+    for _, name in ipairs(itemList) do
+        if string.find(toolName, name:lower(), 1, true) then
             return true
         end
     end
     return false
 end
 
+-- ===================== PLOT =====================
 local function getMyPlot()
     for _, plot in ipairs(workspace.CoreObjects.Plots:GetChildren()) do
-        local owner = plot:GetAttribute("Owner")
-        if owner == LocalPlayer.Name then
+        if plot:GetAttribute("Owner") == LocalPlayer.Name then
             return plot
         end
     end
@@ -817,26 +1041,27 @@ local function getValidStand(plot)
 
         local dock = stand:FindFirstChild("Models") and stand.Models:FindFirstChild("Dock")
         if dock and dock:FindFirstChild("StandHighlight") then
-            break
+            continue
         end
 
         return stand
     end
 end
 
--- ปรับปรุง: เช็ค Handle และ ชื่อไอเทมจากตาราง
+-- ===================== GET TOOL =====================
 local function getToolWithItem()
     for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
         if tool:IsA("Tool") and tool:FindFirstChild("Handle") then
-            if isItemInList(tool.Name) then
+            if isItemAllowed(tool.Name) then
                 return tool
             end
         end
     end
 end
 
+-- ===================== TOGGLE =====================
 OverviewSection1:Toggle({
-    Title = "ออโต้วางไข่",
+    Title = "ออโต้วางไข่ (ไม่สน Prefix)",
     Callback = function(v)
         running = v
 
@@ -848,20 +1073,14 @@ OverviewSection1:Toggle({
                     local tool = getToolWithItem()
 
                     if stand and tool then
-                        -- Equip Tool
                         tool.Parent = LocalPlayer.Character
-
-                        local args = {
-                            stand.Name,
-                            tool.Name
-                        }
 
                         ReplicatedStorage
                             :WaitForChild("Shared")
                             :WaitForChild("Packages")
                             :WaitForChild("Networker")
                             :WaitForChild("RF/PlaceEgg")
-                            :InvokeServer(unpack(args))
+                            :InvokeServer(stand.Name, tool.Name)
                     end
                 end
                 task.wait(0.1)
@@ -869,6 +1088,8 @@ OverviewSection1:Toggle({
         end)
     end
 })
+
+
 
 
 
@@ -1385,4 +1606,3 @@ do
         
     end
 end
-
