@@ -1035,7 +1035,7 @@ end
 
 -- ===================== TOGGLE =====================
 OverviewSection1:Toggle({
-    Title = "ออโต้วางไข่ (ไม่สน Prefix)",
+    Title = "ออโต้วางไข่",
     Callback = function(v)
         running = v
 
@@ -1581,3 +1581,4 @@ do
         
     end
 end
+
