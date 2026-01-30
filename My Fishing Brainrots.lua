@@ -439,16 +439,15 @@ local itemRarity = {
     ["Admin"] = {"Admin Egg", "Taco Block"}
 }
 
--- รายชื่อบัฟทั้งหมดตามที่ผู้ใช้ให้มา
+-- รายชื่อบัฟทั้งหมด
 local allBuffs = {
     "Snowy","Sakura","Tornado","Stinky","Lightning","Taco","Radioactive","Galaxy",
     "Magmatic","Fishing Master","Disco","Gold","Diamond"
 }
 
 -- ===================== FILTER CONFIG =====================
-local FILTERED_NAMES = {"Gold", "Diamond"} -- ชื่อที่ต้องการกรองออกจาก Dropdown
+local FILTERED_NAMES = {"Gold", "Diamond"} -- กรองออกจาก Dropdown รายชื่อไข่หลักเพื่อไม่ให้ซ้ำซ้อน
 
--- ตรวจสอบว่าชื่ออยู่ในรายการกรองหรือไม่
 local function isFilteredName(name)
     if not name then return false end
     local lowerName = string.lower(name)
@@ -461,22 +460,21 @@ local function isFilteredName(name)
 end
 
 -- ===================== STATE =====================
-local selectedRarity = {}      -- list of rarities (จาก Dropdown)
-local selectedBuffs = {}       -- list of buff strings (จาก UI multi select)
-local selectedItems = {}       -- list of specific egg names (จาก EggDropdown Multi)
+local selectedRarity = {}      
+local selectedBuffs = {}       
+local selectedItems = {}       
 local running = false
 local EggDropdown = nil
 local childAddedConn = nil
 local eggsFolder = Workspace:WaitForChild("CoreObjects"):WaitForChild("Eggs")
-local buyDebounce = {}         -- ป้องกันซื้อซ้ำหลายครั้งภายในวินาทีเดียว
+local buyDebounce = {}         
 
--- เก็บการเชื่อมต่อ GUI เพื่อปิดเมื่อจำเป็น
 local guiConns = {}
 
 -- ช่วย: หา key ใน itemRarity โดยเทียบแบบ case-insensitive
 local function findRarityKeyByName(name)
     if not name then return nil end
-    local lower = string.lower(name):gsub("^%s*(.-)%s*$", "%1") -- trim
+    local lower = string.lower(name):gsub("^%s*(.-)%s*$", "%1")
     for k, _ in pairs(itemRarity) do
         if string.lower(k) == lower then
             return k
@@ -485,7 +483,6 @@ local function findRarityKeyByName(name)
     return nil
 end
 
--- เช็คว่าชื่ออยู่แล้วหรือยังในตาราง
 local function contains(tbl, value)
     if not tbl then return false end
     for _, v in ipairs(tbl) do
@@ -494,10 +491,8 @@ local function contains(tbl, value)
     return false
 end
 
--- เพิ่ม frameName ลงใน rarity (ถ้ายังไม่มี) - กรอง Gold/Diamond ออกด้วย
 local function addFrameNameToRarity(frameName, rarityName)
     if not frameName or not rarityName then return end
-    -- กรองชื่อที่มี Gold หรือ Diamond
     if isFilteredName(frameName) then return end
     local key = findRarityKeyByName(rarityName)
     if not key then return end
@@ -507,7 +502,6 @@ local function addFrameNameToRarity(frameName, rarityName)
     end
 end
 
--- เอาออก (เมื่อ frame ถูกลบ)
 local function removeFrameNameFromAllRarities(frameName)
     if not frameName then return end
     for k, t in pairs(itemRarity) do
@@ -519,20 +513,17 @@ local function removeFrameNameFromAllRarities(frameName)
     end
 end
 
--- อ่านค่า rarity จากโครงสร้าง Frame แบบปลอดภัย
 local function readRarityTextFromFrame(frame)
     if not frame then return nil end
-    -- ตามที่ผู้ใช้บอก path: frame.Rarity.Text.Text
     local ok, rarityText = pcall(function()
         if frame:FindFirstChild("Rarity") then
             local r = frame.Rarity
             if r:FindFirstChild("Text") and r.Text:IsA("TextLabel") then
                 return r.Text.Text
             elseif r:IsA("TextLabel") then
-                return r.Text -- ถ้า Rarity เป็น TextLabel เอง (fallback)
+                return r.Text
             end
         end
-        -- ถ้าโครงสร้างต่างไป ลองหาลูกที่เป็น TextLabel และชื่อมีคำว่า "Rarity" หรือ "rarity"
         for _, child in ipairs(frame:GetDescendants()) do
             if child:IsA("TextLabel") and string.find(string.lower(child.Name), "rar") then
                 return child.Text
@@ -540,26 +531,36 @@ local function readRarityTextFromFrame(frame)
         end
         return nil
     end)
-    if ok then return rarityText else return nil end
+    return if ok then rarityText else nil
 end
 
--- สแกน PlayerGui.Main.Frames.Index.ScrollingFrame.Brainrots และเพิ่มชื่อ Frame ลงใน itemRarity ตาม Rarity.Text.Text
+local function buildEggListFromRarity()
+    local list = {}
+    for _, rarity in ipairs(selectedRarity) do
+        local items = itemRarity[rarity]
+        if items then
+            for _, name in ipairs(items) do
+                if not isFilteredName(name) and not contains(list, name) then
+                    table.insert(list, name)
+                end
+            end
+        end
+    end
+    return list
+end
+
 local function scanPlayerGuiBrainrotsAndAdd()
-    local ok, playerGui = pcall(function() return LocalPlayer:WaitForChild("PlayerGui", 2) end)
+    local ok, playerGui = pcall(function() return LocalPlayer:WaitForChild("PlayerGui", 5) end)
     if not ok or not playerGui then return end
 
-    local main = playerGui:FindFirstChild("Main")
-    if not main then return end
-    local frames = main:FindFirstChild("Frames")
-    if not frames then return end
-    local index = frames:FindFirstChild("Index")
-    if not index then return end
-    local scrolling = index:FindFirstChild("ScrollingFrame")
-    if not scrolling then return end
-    local brainrots = scrolling:FindFirstChild("Brainrots")
+    local brainrots = playerGui:FindFirstChild("Main") 
+        and playerGui.Main:FindFirstChild("Frames") 
+        and playerGui.Main.Frames:FindFirstChild("Index") 
+        and playerGui.Main.Frames.Index:FindFirstChild("ScrollingFrame") 
+        and playerGui.Main.Frames.Index.ScrollingFrame:FindFirstChild("Brainrots")
+
     if not brainrots then return end
 
-    -- สแกนของที่มีตอนเริ่ม
     for _, child in ipairs(brainrots:GetChildren()) do
         local rarityText = readRarityTextFromFrame(child)
         if rarityText and child.Name then
@@ -567,15 +568,12 @@ local function scanPlayerGuiBrainrotsAndAdd()
         end
     end
 
-    -- เชื่อมต่อ ChildAdded / ChildRemoved เพื่ออัปเดตแบบไดนามิก
     if not guiConns.brainrotsAddedConn then
         guiConns.brainrotsAddedConn = brainrots.ChildAdded:Connect(function(child)
-            -- รอเล็กน้อยเผื่อ UI ถูกเซ็ตค่า
-            wait(0.05)
+            task.wait(0.1)
             local rarityText = readRarityTextFromFrame(child)
             if rarityText and child.Name then
                 addFrameNameToRarity(child.Name, rarityText)
-                -- ถ้ามี EggDropdown ให้รีเฟรช (จะกรอง Gold/Diamond อัตโนมัติผ่าน buildEggListFromRarity)
                 if EggDropdown then
                     EggDropdown:Refresh(buildEggListFromRarity(), true)
                 end
@@ -595,26 +593,8 @@ local function scanPlayerGuiBrainrotsAndAdd()
     end
 end
 
--- ===================== HELPERS =====================
+-- ===================== CORE LOGIC (FIXED) =====================
 
--- สร้าง list ของชื่อไข่ตาม rarity ที่เลือก (plain base names, ไม่มีบัฟต่อหน้า) - กรอง Gold/Diamond ออก
-local function buildEggListFromRarity()
-    local list = {}
-    for _, rarity in ipairs(selectedRarity) do
-        local items = itemRarity[rarity]
-        if items then
-            for _, name in ipairs(items) do
-                -- กรองชื่อที่มี Gold หรือ Diamond
-                if not isFilteredName(name) and not contains(list, name) then
-                    table.insert(list, name)
-                end
-            end
-        end
-    end
-    return list
-end
-
--- คืนค่า list ของชื่อที่ต้องจับ (ถ้ามีการเลือกใน EggDropdown ใช้ selectedItems; ถ้าไม่มีแต่เลือก rarity ให้ใช้จาก rarity)
 local function getTrackedItems()
     if selectedItems and #selectedItems > 0 then
         return selectedItems
@@ -622,67 +602,68 @@ local function getTrackedItems()
     return buildEggListFromRarity()
 end
 
--- ตรวจสอบว่า eggName ตรงกับ item ที่เราเฝ้าจับหรือไม่ (รองรับการมีบัฟอยู่ในชื่อ)
+-- ฟังก์ชันตรวจสอบไข่: แก้ไขให้รองรับการมีหลายบัฟ (เช่น Galaxy Magmatic ...)
 local function eggMatches(eggName)
     if not eggName or eggName == "" then return false end
     local lowerEgg = string.lower(eggName)
     local targets = getTrackedItems()
-    if not targets or #targets == 0 then
-        return false
+    
+    if not targets or #targets == 0 then return false end
+
+    -- 1. ตรวจสอบก่อนว่า "ชื่อหลัก" ของไข่อยู่ในชื่อ object หรือไม่
+    local baseMatch = false
+    for _, t in ipairs(targets) do
+        if t ~= "" and string.find(lowerEgg, string.lower(t), 1, true) then
+            baseMatch = true
+            break
+        end
     end
 
-    for _, t in ipairs(targets) do
-        if t and t ~= "" then
-            local lowerT = string.lower(t)
-            -- ถ้า eggName มี target เป็น substring (รองรับชื่อที่มีบัฟนำหน้า/สลับตำแหน่ง)
-            if string.find(lowerEgg, lowerT, 1, true) then
-                -- ถ้ามีการเลือกบัฟ ให้ตรวจสอบว่าชื่อไข่มีบัฟใดที่เราเลือกอย่างน้อยหนึ่งตัว
-                if selectedBuffs and #selectedBuffs > 0 then
-                    for _, b in ipairs(selectedBuffs) do
-                        if b and b ~= "" then
-                            local lowerB = string.lower(b)
-                            if string.find(lowerEgg, lowerB, 1, true) then
-                                return true
-                            end
-                        end
-                    end
-                    -- ถ้า loop บัฟจบแล้วไม่มีบัฟใดตรง -> ไม่ซื้อ
-                    return false
-                else
-                    -- ถ้าไม่เลือกบัฟ -> ซื้อทันทีเมื่อชื่อไข่ตรง
-                    return true
-                end
+    -- ถ้าชื่อหลักไม่ตรงเลย ไม่ต้องเช็คต่อ
+    if not baseMatch then return false end
+
+    -- 2. ตรวจสอบเรื่องบัฟ
+    -- ถ้าผู้ใช้ "ไม่ได้เลือกบัฟใดๆ" เลย -> ให้ถือว่าซื้อทุกบัฟที่เป็นชื่อนี้
+    if not selectedBuffs or #selectedBuffs == 0 then
+        return true
+    end
+
+    -- ถ้าเลือกบัฟไว้: ให้วนลูปเช็คว่า "มีบัฟใดบัฟหนึ่ง" ที่เราเลือก อยู่ในชื่อไข่หรือไม่
+    -- วิธีนี้จะรองรับไข่ที่มี 2-3 บัฟ เพราะขอแค่ string.find เจอ 1 ตัวที่เลือกก็จะ return true ทันที
+    for _, b in ipairs(selectedBuffs) do
+        if b ~= "" then
+            local lowerB = string.lower(b)
+            if string.find(lowerEgg, lowerB, 1, true) then
+                return true -- พบอย่างน้อย 1 บัฟที่ต้องการในชื่อไข่ (แม้จะมีบัฟอื่นปนอยู่ก็ตาม)
             end
         end
     end
-    return false
+
+    return false -- มีชื่อหลักตรง แต่ไม่มีบัฟไหนที่เลือกเลย
 end
 
--- ฟังก์ชันสั่งซื้อ (ใช้ RF/BuyEgg ตามที่ให้มา)
 local function buyEggByName(name)
     if not name then return end
-    -- ปรับ debounce ต่อชื่อ เพื่อไม่ให้เรียกหลายครั้งต่อเวลาอันสั้น
     local now = tick()
-    if buyDebounce[name] and now - buyDebounce[name] < 1.2 then
+    if buyDebounce[name] and now - buyDebounce[name] < 0.8 then
         return
     end
     buyDebounce[name] = now
 
-    -- เตรียม path ไปยัง RemoteFunction (ตามตัวอย่างเดิม)
-    local success, err = pcall(function()
-        local shared = ReplicatedStorage:WaitForChild("Shared")
-        local packages = shared:WaitForChild("Packages")
-        local networker = packages:WaitForChild("Networker")
-        local rf = networker:WaitForChild("RF/BuyEgg")
-        -- ส่งชื่อที่ปรากฏใน workspace (รวมบัฟที่มีอยู่ในชื่อ) เพื่อให้เซิร์ฟเวอร์ซื้อให้
-        rf:InvokeServer(name)
+    task.spawn(function()
+        local success, err = pcall(function()
+            local rf = ReplicatedStorage:WaitForChild("Shared")
+                :WaitForChild("Packages")
+                :WaitForChild("Networker")
+                :WaitForChild("RF/BuyEgg")
+            rf:InvokeServer(name)
+        end)
+        if not success then
+            warn("Failed to buy egg:", name, "| Error:", err)
+        end
     end)
-    if not success then
-        warn("BuyEgg invoke failed:", err)
-    end
 end
 
--- ตรวจสอบและซื้อไข่เมื่อเจอ object (ทันทีกดพบหรือแสดงใน workspace)
 local function handleEggInstance(inst)
     if not inst or not inst.Name then return end
     if eggMatches(inst.Name) then
@@ -690,25 +671,22 @@ local function handleEggInstance(inst)
     end
 end
 
--- สแกนไข่ที่มีอยู่ตอนนี้แล้วซื้อถ้าตรง
 local function scanExistingEggs()
     for _, child in ipairs(eggsFolder:GetChildren()) do
-        pcall(function() handleEggInstance(child) end)
+        handleEggInstance(child)
     end
 end
 
--- เริ่มการเฝ้าดู (เชื่อมต่อ ChildAdded)
 local function startWatcher()
     if running then return end
     running = true
     scanExistingEggs()
     childAddedConn = eggsFolder.ChildAdded:Connect(function(child)
-        wait(0.05)
-        pcall(function() handleEggInstance(child) end)
+        task.wait(0.01) -- รอให้ชื่อโหลดเสร็จสมบูรณ์
+        handleEggInstance(child)
     end)
 end
 
--- หยุดการเฝ้าดู
 local function stopWatcher()
     running = false
     if childAddedConn then
@@ -717,11 +695,10 @@ local function stopWatcher()
     end
 end
 
--- ===================== UI =====================
+-- ===================== UI SETUP =====================
 
--- เลือก Rarity (multi)
 OverviewSection2:Dropdown({
-    Title = "เลือกระดับ (Rarity)",
+    Title = "เลือกระดับไข่",
     Values = {"Common","Uncommon","Rare","Epic","Legendary","XMAS 25","Mythic","Secret","Exotic","Event","OG","Divine","Admin"},
     Multi = true,
     Callback = function(v)
@@ -733,7 +710,6 @@ OverviewSection2:Dropdown({
     end
 })
 
--- รายชื่อไข่ (generated จาก rarity หากผู้ใช้เลือก) / กรอง Gold และ Diamond ออกอัตโนมัติ
 EggDropdown = OverviewSection2:Dropdown({
     Title = "เลือกไข่",
     Values = {},
@@ -744,9 +720,8 @@ EggDropdown = OverviewSection2:Dropdown({
     end
 })
 
--- เลือกบัฟ (Buffs)
 OverviewSection2:Dropdown({
-    Title = "เลือกบัฟ",
+    Title = "เลือกบัฟที่ต้องการ (มีบัฟเดียวหรือหลายบัฟก็จะซื้อถ้าตรง)",
     Values = allBuffs,
     Multi = true,
     Callback = function(v)
@@ -754,7 +729,6 @@ OverviewSection2:Dropdown({
     end
 })
 
--- Toggle เริ่ม/หยุด (ซื้อทันทีเมื่อเจอหรือแสดงใน workspace.CoreObjects.Eggs)
 OverviewSection2:Toggle({
     Title = "ออโต้ซื้อไข่",
     Callback = function(v)
@@ -766,7 +740,7 @@ OverviewSection2:Toggle({
     end
 })
 
--- เรียกสแกน GUI ตอนเริ่มเพื่อโหลดข้อมูลไข่ (จะกรอง Gold/Diamond อัตโนมัติ)
+-- เริ่มต้นสแกน
 scanPlayerGuiBrainrotsAndAdd()
 
 
@@ -1370,7 +1344,6 @@ OverviewSection3:Toggle({
 OverviewSection4:Toggle({
   Title = "ออโต้ซื้ออาหารทั้งหมด",
   Callback = function(v)
-    -- ถ้า v == false ผู้ใช้ปิด Toggle แล้ว จะไม่รัน loop
     if not v then
       print("Toggle ปิดแล้ว")
       return
@@ -1380,21 +1353,29 @@ OverviewSection4:Toggle({
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local player = Players.LocalPlayer
 
-    -- ปรับ path ตามโครง GUI ของเกมถ้าจำเป็น
+    -- หา GUI ร้านอาหาร
     local success, guiFolder = pcall(function()
-      return player:WaitForChild("PlayerGui"):WaitForChild("Main"):WaitForChild("Frames")
-             :WaitForChild("FoodMerchant"):WaitForChild("ScrollingFrame")
-             :WaitForChild("ScrollingFrame")
+      return player:WaitForChild("PlayerGui")
+        :WaitForChild("Main")
+        :WaitForChild("Frames")
+        :WaitForChild("FoodMerchant")
+        :WaitForChild("ScrollingFrame")
+        :WaitForChild("ScrollingFrame")
     end)
+
     if not success or not guiFolder then
       warn("หา FoodMerchant ScrollingFrame ไม่เจอ")
       return
     end
 
-    local remote = ReplicatedStorage:WaitForChild("Shared")
-                  :WaitForChild("Packages"):WaitForChild("Networker")
-                  :WaitForChild("RF/BuyFood")
+    -- Remote ซื้ออาหาร
+    local remote = ReplicatedStorage
+      :WaitForChild("Shared")
+      :WaitForChild("Packages")
+      :WaitForChild("Networker")
+      :WaitForChild("RF/BuyFood")
 
+    -- ชื่อที่ไม่ต้องสนใจ
     local excludedNames = {
       Template = true,
       Bottom = true,
@@ -1402,7 +1383,7 @@ OverviewSection4:Toggle({
       Filler = true,
     }
 
-    -- หาเลขจาก Text ที่มีรูปแบบ "x<number>" เช่น "x1"
+    -- ดึงจำนวน stock จาก text เช่น x1, x12
     local function getStockCount(frame)
       for _, obj in ipairs(frame:GetDescendants()) do
         if obj:IsA("TextLabel") or obj:IsA("TextBox") or obj:IsA("TextButton") then
@@ -1416,52 +1397,46 @@ OverviewSection4:Toggle({
       return nil
     end
 
-    -- ป้องกัน spam / rapid invoke: เก็บเวลา last purchase ต่อไอเท็ม
+    -- กัน spam
     local lastPurchase = {}
-    local MIN_INTERVAL = 0 -- วินาที ระหว่างการซื้อซ้ำของไอเท็มเดียวกัน
+    local MIN_INTERVAL = 0.2 -- หน่วงต่อไอเท็ม (ปรับได้)
 
-    -- loop หลัก ขยับจนผู้ใช้ปิด Toggle (v ถูกตั้งเป็น false จาก UI) หรือจนของหมดทั้งหมด
-    spawn(function() -- ทำใน coroutine เพื่อไม่บล็อก UI ถ้าต้องการ
+    task.spawn(function()
       while v do
-        local anyAvailable = false
-
         for _, itemFrame in ipairs(guiFolder:GetChildren()) do
           if itemFrame:IsA("Frame") and not excludedNames[itemFrame.Name] then
             local count = getStockCount(itemFrame)
-            if count and count > 0 then
-              anyAvailable = true
 
+            if count and count > 0 then
               local now = tick()
-              if not lastPurchase[itemFrame.Name] or (now - lastPurchase[itemFrame.Name] >= MIN_INTERVAL) then
-                -- เรียก server เพื่อซื้อ (ใส่ชื่อ Frame เป็น argument ตามที่เกมต้องการ)
+              if not lastPurchase[itemFrame.Name]
+                or (now - lastPurchase[itemFrame.Name]) >= MIN_INTERVAL then
+
                 local ok, err = pcall(function()
-                  local args = { itemFrame.Name }
-                  remote:InvokeServer(unpack(args))
+                  remote:InvokeServer(itemFrame.Name)
                 end)
+
                 if not ok then
-                  warn("การสั่งซื้อ "..itemFrame.Name.." ล้มเหลว: "..tostring(err))
+                  warn("ซื้อไม่สำเร็จ:", itemFrame.Name, err)
                 else
                   lastPurchase[itemFrame.Name] = now
                 end
-                wait(0) -- เล็กน้อยกัน rapid-fire
+
+                task.wait(0.05)
               end
             end
           end
         end
 
-        if not anyAvailable then
-          warn("ไม่มีไอเท็มที่มี stock > 0 ภายใน FoodMerchant — หยุดการทำงาน")
-          break
-        end
-
-        wait(0) -- เว้นช่วงก่อนรอบถัดไป
+        -- 🔁 รีตลอด ถึงของหมดก็ไม่หยุด
+        task.wait(0.5) -- หน่วงรอบใหญ่ ป้องกันลูปหนักเกิน
       end
 
-      -- เมื่อออกจาก loop (ผู้ใช้ปิดหรือของหมด) ให้แจ้งสถานะ
-      print("Toggle 2: หยุดการทำงานแล้ว")
+      print("ออโต้ซื้ออาหาร: หยุดแล้ว")
     end)
   end
 })
+
 
 
 
