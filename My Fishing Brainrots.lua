@@ -442,7 +442,7 @@ local itemRarity = {
 -- รายชื่อบัฟทั้งหมด
 local allBuffs = {
     "Snowy","Sakura","Tornado","Stinky","Lightning","Taco","Radioactive","Galaxy",
-    "Magmatic","Fishing Master","Disco","Gold","Diamond"
+    "Magmatic","Fishing Master","Disco","Gold","Diamond","METEOR RAIN"
 }
 
 -- ===================== FILTER CONFIG =====================
@@ -1581,5 +1581,6 @@ do
         
     end
 end
+
 
 
