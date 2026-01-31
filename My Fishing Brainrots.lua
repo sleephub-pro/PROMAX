@@ -1057,7 +1057,7 @@ OverviewSection1:Toggle({
                             :InvokeServer(stand.Name, tool.Name)
                     end
                 end
-                task.wait(0.1)
+                task.wait(0.5)
             end
         end)
     end
@@ -1581,4 +1581,5 @@ do
         
     end
 end
+
 
