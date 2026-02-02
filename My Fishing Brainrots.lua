@@ -439,14 +439,24 @@ local itemRarity = {
     ["Admin"] = {"Admin Egg", "Taco Block"}
 }
 
--- รายชื่อบัฟทั้งหมด
-local allBuffs = {
-    "Snowy","Sakura","Tornado","Stinky","Lightning","Taco","Radioactive","Galaxy",
-    "Magmatic","Fishing Master","Disco","Gold","Diamond","METEOR RAIN"
-}
+-- ===================== BUFF LIST =====================
+-- Normal + ดึงชื่อบัฟจาก ReplicatedStorage.Assets.WeatherEventAssets
+local allBuffs = {"Normal"}
+
+do
+    local assets = ReplicatedStorage:WaitForChild("Assets", true)
+    if assets then
+        local weatherFolder = assets:WaitForChild("WeatherEventAssets", true)
+        if weatherFolder then
+            for _, obj in ipairs(weatherFolder:GetChildren()) do
+                table.insert(allBuffs, obj.Name)
+            end
+        end
+    end
+end
 
 -- ===================== FILTER CONFIG =====================
-local FILTERED_NAMES = {"Gold", "Diamond"} -- กรองออกจาก Dropdown รายชื่อไข่หลักเพื่อไม่ให้ซ้ำซ้อน
+local FILTERED_NAMES = {"Gold", "Diamond"}
 
 local function isFilteredName(name)
     if not name then return false end
@@ -460,18 +470,16 @@ local function isFilteredName(name)
 end
 
 -- ===================== STATE =====================
-local selectedRarity = {}      
-local selectedBuffs = {}       
-local selectedItems = {}       
+local selectedRarity = {}
+local selectedBuffs = {}
+local selectedItems = {}
 local running = false
 local EggDropdown = nil
 local childAddedConn = nil
 local eggsFolder = Workspace:WaitForChild("CoreObjects"):WaitForChild("Eggs")
-local buyDebounce = {}         
-
+local buyDebounce = {}
 local guiConns = {}
 
--- ช่วย: หา key ใน itemRarity โดยเทียบแบบ case-insensitive
 local function findRarityKeyByName(name)
     if not name then return nil end
     local lower = string.lower(name):gsub("^%s*(.-)%s*$", "%1")
@@ -484,7 +492,6 @@ local function findRarityKeyByName(name)
 end
 
 local function contains(tbl, value)
-    if not tbl then return false end
     for _, v in ipairs(tbl) do
         if v == value then return true end
     end
@@ -496,15 +503,13 @@ local function addFrameNameToRarity(frameName, rarityName)
     if isFilteredName(frameName) then return end
     local key = findRarityKeyByName(rarityName)
     if not key then return end
-    if not itemRarity[key] then itemRarity[key] = {} end
     if not contains(itemRarity[key], frameName) then
         table.insert(itemRarity[key], frameName)
     end
 end
 
 local function removeFrameNameFromAllRarities(frameName)
-    if not frameName then return end
-    for k, t in pairs(itemRarity) do
+    for _, t in pairs(itemRarity) do
         for i = #t, 1, -1 do
             if t[i] == frameName then
                 table.remove(t, i)
@@ -513,176 +518,89 @@ local function removeFrameNameFromAllRarities(frameName)
     end
 end
 
-local function readRarityTextFromFrame(frame)
-    if not frame then return nil end
-    local ok, rarityText = pcall(function()
-        if frame:FindFirstChild("Rarity") then
-            local r = frame.Rarity
-            if r:FindFirstChild("Text") and r.Text:IsA("TextLabel") then
-                return r.Text.Text
-            elseif r:IsA("TextLabel") then
-                return r.Text
-            end
-        end
-        for _, child in ipairs(frame:GetDescendants()) do
-            if child:IsA("TextLabel") and string.find(string.lower(child.Name), "rar") then
-                return child.Text
-            end
-        end
-        return nil
-    end)
-    return if ok then rarityText else nil
-end
-
 local function buildEggListFromRarity()
     local list = {}
     for _, rarity in ipairs(selectedRarity) do
-        local items = itemRarity[rarity]
-        if items then
-            for _, name in ipairs(items) do
-                if not isFilteredName(name) and not contains(list, name) then
-                    table.insert(list, name)
-                end
+        for _, name in ipairs(itemRarity[rarity] or {}) do
+            if not isFilteredName(name) and not contains(list, name) then
+                table.insert(list, name)
             end
         end
     end
     return list
 end
 
-local function scanPlayerGuiBrainrotsAndAdd()
-    local ok, playerGui = pcall(function() return LocalPlayer:WaitForChild("PlayerGui", 5) end)
-    if not ok or not playerGui then return end
-
-    local brainrots = playerGui:FindFirstChild("Main") 
-        and playerGui.Main:FindFirstChild("Frames") 
-        and playerGui.Main.Frames:FindFirstChild("Index") 
-        and playerGui.Main.Frames.Index:FindFirstChild("ScrollingFrame") 
-        and playerGui.Main.Frames.Index.ScrollingFrame:FindFirstChild("Brainrots")
-
-    if not brainrots then return end
-
-    for _, child in ipairs(brainrots:GetChildren()) do
-        local rarityText = readRarityTextFromFrame(child)
-        if rarityText and child.Name then
-            addFrameNameToRarity(child.Name, rarityText)
-        end
-    end
-
-    if not guiConns.brainrotsAddedConn then
-        guiConns.brainrotsAddedConn = brainrots.ChildAdded:Connect(function(child)
-            task.wait(0.1)
-            local rarityText = readRarityTextFromFrame(child)
-            if rarityText and child.Name then
-                addFrameNameToRarity(child.Name, rarityText)
-                if EggDropdown then
-                    EggDropdown:Refresh(buildEggListFromRarity(), true)
-                end
-            end
-        end)
-    end
-
-    if not guiConns.brainrotsRemovedConn then
-        guiConns.brainrotsRemovedConn = brainrots.ChildRemoved:Connect(function(child)
-            if child and child.Name then
-                removeFrameNameFromAllRarities(child.Name)
-                if EggDropdown then
-                    EggDropdown:Refresh(buildEggListFromRarity(), true)
-                end
-            end
-        end)
-    end
-end
-
--- ===================== CORE LOGIC (FIXED) =====================
-
 local function getTrackedItems()
-    if selectedItems and #selectedItems > 0 then
+    if #selectedItems > 0 then
         return selectedItems
     end
     return buildEggListFromRarity()
 end
 
--- ฟังก์ชันตรวจสอบไข่: แก้ไขให้รองรับการมีหลายบัฟ (เช่น Galaxy Magmatic ...)
+-- ===================== MATCH LOGIC =====================
 local function eggMatches(eggName)
     if not eggName or eggName == "" then return false end
     local lowerEgg = string.lower(eggName)
-    local targets = getTrackedItems()
-    
-    if not targets or #targets == 0 then return false end
 
-    -- 1. ตรวจสอบก่อนว่า "ชื่อหลัก" ของไข่อยู่ในชื่อ object หรือไม่
     local baseMatch = false
-    for _, t in ipairs(targets) do
-        if t ~= "" and string.find(lowerEgg, string.lower(t), 1, true) then
+    for _, t in ipairs(getTrackedItems()) do
+        if string.find(lowerEgg, string.lower(t), 1, true) then
             baseMatch = true
             break
         end
     end
-
-    -- ถ้าชื่อหลักไม่ตรงเลย ไม่ต้องเช็คต่อ
     if not baseMatch then return false end
 
-    -- 2. ตรวจสอบเรื่องบัฟ
-    -- ถ้าผู้ใช้ "ไม่ได้เลือกบัฟใดๆ" เลย -> ให้ถือว่าซื้อทุกบัฟที่เป็นชื่อนี้
-    if not selectedBuffs or #selectedBuffs == 0 then
+    if #selectedBuffs == 0 then
         return true
     end
 
-    -- ถ้าเลือกบัฟไว้: ให้วนลูปเช็คว่า "มีบัฟใดบัฟหนึ่ง" ที่เราเลือก อยู่ในชื่อไข่หรือไม่
-    -- วิธีนี้จะรองรับไข่ที่มี 2-3 บัฟ เพราะขอแค่ string.find เจอ 1 ตัวที่เลือกก็จะ return true ทันที
-    for _, b in ipairs(selectedBuffs) do
-        if b ~= "" then
-            local lowerB = string.lower(b)
-            if string.find(lowerEgg, lowerB, 1, true) then
-                return true -- พบอย่างน้อย 1 บัฟที่ต้องการในชื่อไข่ (แม้จะมีบัฟอื่นปนอยู่ก็ตาม)
+    local wantNormal = contains(selectedBuffs, "Normal")
+    local hasAnyBuff = false
+
+    for _, b in ipairs(allBuffs) do
+        if b ~= "Normal" and string.find(lowerEgg, string.lower(b), 1, true) then
+            hasAnyBuff = true
+            if contains(selectedBuffs, b) then
+                return true
             end
         end
     end
 
-    return false -- มีชื่อหลักตรง แต่ไม่มีบัฟไหนที่เลือกเลย
+    if wantNormal and not hasAnyBuff then
+        return true
+    end
+
+    return false
 end
 
+-- ===================== BUY LOGIC =====================
 local function buyEggByName(name)
-    if not name then return end
     local now = tick()
-    if buyDebounce[name] and now - buyDebounce[name] < 0.8 then
-        return
-    end
+    if buyDebounce[name] and now - buyDebounce[name] < 0.8 then return end
     buyDebounce[name] = now
 
     task.spawn(function()
-        local success, err = pcall(function()
-            local rf = ReplicatedStorage:WaitForChild("Shared")
-                :WaitForChild("Packages")
-                :WaitForChild("Networker")
-                :WaitForChild("RF/BuyEgg")
-            rf:InvokeServer(name)
-        end)
-        if not success then
-            warn("Failed to buy egg:", name, "| Error:", err)
-        end
+        ReplicatedStorage.Shared.Packages.Networker["RF/BuyEgg"]:InvokeServer(name)
     end)
 end
 
 local function handleEggInstance(inst)
-    if not inst or not inst.Name then return end
-    if eggMatches(inst.Name) then
+    if inst and eggMatches(inst.Name) then
         buyEggByName(inst.Name)
-    end
-end
-
-local function scanExistingEggs()
-    for _, child in ipairs(eggsFolder:GetChildren()) do
-        handleEggInstance(child)
     end
 end
 
 local function startWatcher()
     if running then return end
     running = true
-    scanExistingEggs()
+
+    for _, egg in ipairs(eggsFolder:GetChildren()) do
+        handleEggInstance(egg)
+    end
+
     childAddedConn = eggsFolder.ChildAdded:Connect(function(child)
-        task.wait(0.01) -- รอให้ชื่อโหลดเสร็จสมบูรณ์
+        task.wait(0.05)
         handleEggInstance(child)
     end)
 end
@@ -695,8 +613,7 @@ local function stopWatcher()
     end
 end
 
--- ===================== UI SETUP =====================
-
+-- ===================== UI =====================
 OverviewSection2:Dropdown({
     Title = "เลือกระดับไข่",
     Values = {"Common","Uncommon","Rare","Epic","Legendary","XMAS 25","Mythic","Secret","Exotic","Event","OG","Divine","Admin"},
@@ -713,15 +630,15 @@ OverviewSection2:Dropdown({
 EggDropdown = OverviewSection2:Dropdown({
     Title = "เลือกไข่",
     Values = {},
-    AllowNone = true,
     Multi = true,
+    AllowNone = true,
     Callback = function(v)
         selectedItems = v or {}
     end
 })
 
 OverviewSection2:Dropdown({
-    Title = "เลือกบัฟที่ต้องการ (มีบัฟเดียวหรือหลายบัฟก็จะซื้อถ้าตรง)",
+    Title = "เลือกบัฟ (Normal = ไข่ปกติ)",
     Values = allBuffs,
     Multi = true,
     Callback = function(v)
@@ -740,8 +657,7 @@ OverviewSection2:Toggle({
     end
 })
 
--- เริ่มต้นสแกน
-scanPlayerGuiBrainrotsAndAdd()
+
 
 
 
@@ -1581,6 +1497,5 @@ do
         
     end
 end
-
 
 
