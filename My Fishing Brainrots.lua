@@ -404,6 +404,9 @@ do
     local OverviewSection4 = OverviewTab:Section({
         Title = "ร้านค้าอาหาร"
     })
+    local OverviewSection5 = OverviewTab:Section({
+        Title = "อีเวนต์เครื่องบิน"
+    })
 
 
 
@@ -1432,6 +1435,74 @@ OverviewSection4:Toggle({
 		end
 	end
 })
+
+
+
+
+
+
+
+
+
+
+
+
+
+OverviewSection1:Toggle({
+    Title = "สุ่มบัฟทุกตัว",
+    Callback = function(v)
+        if not v then
+            _G.Toggle2Running = false
+            return
+        end
+
+        _G.Toggle2Running = true
+
+        task.spawn(function()
+            local Players = game:GetService("Players")
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local player = Players.LocalPlayer
+
+            while _G.Toggle2Running do
+                local backpack = player:FindFirstChild("Backpack")
+                if backpack then
+                    for _, tool in pairs(backpack:GetChildren()) do
+                        if tool:IsA("Tool") then
+                            -- เช็คว่าไม่มีไฟล์ด้านใน
+                            if #tool:GetChildren() == 0 then
+                                local id = tool:GetAttribute("ID")
+                                if id then
+                                    local args = {
+                                        id
+                                    }
+
+                                    ReplicatedStorage
+                                        :WaitForChild("Shared")
+                                        :WaitForChild("Packages")
+                                        :WaitForChild("Networker")
+                                        :WaitForChild("RF/MutateBrainrot")
+                                        :InvokeServer(unpack(args))
+                                end
+                            end
+                        end
+                    end
+                end
+
+                task.wait(0.01)
+            end
+        end)
+    end
+})
+
+
+
+
+
+
+
+
+
+
 
 
 
