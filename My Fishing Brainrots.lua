@@ -438,7 +438,7 @@ local itemRarity = {
     ["Event"] = {"Tralalelodon", "Orcadon", "Orcadon", "Blingo Tentacolo", "Eviledon", "Moby bobby"},
     ["OG"] = {"Ganganzelli Trulala", "Strawberry Elephant", "Crystalini Ananassini", "Meowl", "Spiuniru Golubiru"},
     ["Divine"] = {"Dragon Cannelloni", "Chicleteira Bicicleteira", "Crabbo Limonetta", "Alessio", "Mariachi Skeletoni", "Piccione Maccina"},
-    ["GOD"] = {"Money Money Man", "Karloo"},
+    ["GOD"] = {"Money Money Man", "Karloo","Pirutitoita Bicicletei","Signore","Carapace"},
     ["Admin"] = {"Admin Egg", "Taco Block"}
 }
 
@@ -1615,6 +1615,7 @@ do
         
     end
 end
+
 
 
 
