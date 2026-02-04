@@ -619,7 +619,7 @@ end
 -- ===================== UI =====================
 OverviewSection2:Dropdown({
     Title = "เลือกระดับไข่",
-    Values = {"Common","Uncommon","Rare","Epic","Legendary","XMAS 25","Mythic","Secret","Exotic","Event","OG","Divine","Admin"},
+    Values = {"Common","Uncommon","Rare","Epic","Legendary","XMAS 25","Mythic","Secret","Exotic","Event","OG","Divine","GOD","Admin"},
     Multi = true,
     Callback = function(v)
         selectedRarity = v or {}
@@ -1568,5 +1568,6 @@ do
         
     end
 end
+
 
 
