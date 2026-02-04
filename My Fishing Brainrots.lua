@@ -1502,6 +1502,53 @@ OverviewSection1:Toggle({
 
 
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LP = Players.LocalPlayer
+
+local ToggleState = false
+local UsedPrompt = false
+
+OverviewSection5:Toggle({
+    Title = "ออโค้เก็บของ",
+    Callback = function(v)
+        ToggleState = v
+        UsedPrompt = false
+    end
+})
+
+task.spawn(function()
+    while true do
+        task.wait(0.01)
+
+        if ToggleState and not UsedPrompt then
+            local core = workspace:FindFirstChild("CoreObjects")
+            if core then
+                local planeCrash = core:FindFirstChild("Plane Crash")
+                if planeCrash and planeCrash:IsA("Model") then
+
+                    -- หา PrimaryPart ถ้ายังไม่มี
+                    if not planeCrash.PrimaryPart then
+                        planeCrash.PrimaryPart = planeCrash:FindFirstChildWhichIsA("BasePart")
+                    end
+
+                    if planeCrash.PrimaryPart and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                        -- วาป
+                        LP.Character.HumanoidRootPart.CFrame =
+                            planeCrash.PrimaryPart.CFrame * CFrame.new(0, 0, -3)
+
+                        -- หา ProximityPrompt
+                        local prompt = planeCrash:FindFirstChildWhichIsA("ProximityPrompt", true)
+                        if prompt then
+                            fireproximityprompt(prompt)
+                            UsedPrompt = true -- กดครั้งเดียว
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
 
 
 
