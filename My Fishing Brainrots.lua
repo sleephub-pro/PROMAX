@@ -1641,6 +1641,138 @@ end
 
 
 
+do
+    local OverviewTab = ElementsSection:Tab({
+        Title = "ส่วนที่สอง",
+        Icon = "solar:home-2-bold",
+        IconColor = Blue,
+        IconShape = "Square",
+    })
+    
+    local OverviewSection1 = OverviewTab:Section({
+        Title = "ออโต้ฟาร์ม"
+    })
+
+
+
+
+
+
+
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+local Networker = ReplicatedStorage
+	:WaitForChild("Shared")
+	:WaitForChild("Packages")
+	:WaitForChild("Networker")
+	:WaitForChild("RF/PlaceLimitedEventBrainrot")
+
+local function getItemName(setupFolder)
+	local stand = setupFolder:FindFirstChild("Stand")
+	if not stand then return nil end
+
+	local children = stand:GetChildren()
+	if not children[2] then return nil end
+
+	local info = children[2]:FindFirstChild("Info")
+	if not info then return nil end
+
+	local frame = info:FindFirstChild("Frame")
+	if not frame then return nil end
+
+	local itemText = frame:FindFirstChild("ItemName")
+	if not itemText then return nil end
+
+	return itemText.Text
+end
+
+local function equipToolIfExists(toolName, setupFolder)
+	local backpack = LocalPlayer:WaitForChild("Backpack")
+
+	local requiredFolder = setupFolder:FindFirstChild("RequiredBrainrot")
+	if requiredFolder and requiredFolder:FindFirstChild("RequiredBrainrot") then
+		return
+	end
+
+	for _, tool in ipairs(backpack:GetChildren()) do
+		if tool:IsA("Tool") and tool.Name == toolName then
+			if #tool:GetChildren() == 0 then
+				if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+					LocalPlayer.Character.Humanoid:EquipTool(tool)
+				end
+				return
+			end
+		end
+	end
+end
+
+-- ================= TOGGLE 1 =================
+OverviewSection1:Toggle({
+	Title = "ถือตัวที่อยู่ในเงื่อนไข้",
+	Callback = function(v)
+		while v do
+			for i = 1, 3 do
+				local setup = workspace.CoreObjects.LimitedEvent.Setup:FindFirstChild(tostring(i))
+				if setup then
+					local itemName = getItemName(setup)
+					if itemName then
+						equipToolIfExists(itemName, setup)
+					end
+				end
+			end
+			task.wait(0.01)
+		end
+	end
+})
+
+-- ================= TOGGLE 2 =================
+OverviewSection1:Toggle({
+	Title = "วางออโต้",
+	Callback = function(v)
+		while v do
+			for i = 1, 3 do
+				local setup = workspace.CoreObjects.LimitedEvent.Setup:FindFirstChild(tostring(i))
+				if setup then
+					local itemName = getItemName(setup)
+					if itemName then
+						pcall(function()
+							Networker:InvokeServer(tostring(i))
+						end)
+					end
+				end
+			end
+			task.wait(0.01)
+		end
+	end
+})
+
+
+
+
+
+
+
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1687,6 +1819,5 @@ do
         
     end
 end
-
 
 
