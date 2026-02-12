@@ -1574,53 +1574,53 @@ OverviewSection1:Toggle({
 
 
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LP = Players.LocalPlayer
+local toggle2 = false
 
-local ToggleState = false
-local UsedPrompt = false
-
-OverviewSection5:Toggle({
-    Title = "ออโค้เก็บของ",
+OverviewSection1:Toggle({
+    Title = "ออโต้เก็บของ",
     Callback = function(v)
-        ToggleState = v
-        UsedPrompt = false
-    end
-})
+        toggle2 = v
 
-task.spawn(function()
-    while true do
-        task.wait(0.01)
+        if v then
+            task.spawn(function()
+                while toggle2 do
+                    task.wait(0.1)
 
-        if ToggleState and not UsedPrompt then
-            local core = workspace:FindFirstChild("CoreObjects")
-            if core then
-                local planeCrash = core:FindFirstChild("Plane Crash")
-                if planeCrash and planeCrash:IsA("Model") then
+                    local core = workspace:FindFirstChild("CoreObjects")
+                    if core and core:FindFirstChild("Plane Crash") then
+                        local folder = core["Plane Crash"]
 
-                    -- หา PrimaryPart ถ้ายังไม่มี
-                    if not planeCrash.PrimaryPart then
-                        planeCrash.PrimaryPart = planeCrash:FindFirstChildWhichIsA("BasePart")
-                    end
+                        for _, obj in pairs(folder:GetChildren()) do
+                            if not toggle2 then break end
 
-                    if planeCrash.PrimaryPart and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-                        -- วาป
-                        LP.Character.HumanoidRootPart.CFrame =
-                            planeCrash.PrimaryPart.CFrame * CFrame.new(0, 0, -3)
+                            if obj:IsA("Model") then
+                                local hrp = game.Players.LocalPlayer.Character and 
+                                            game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 
-                        -- หา ProximityPrompt
-                        local prompt = planeCrash:FindFirstChildWhichIsA("ProximityPrompt", true)
-                        if prompt then
-                            fireproximityprompt(prompt)
-                            UsedPrompt = true -- กดครั้งเดียว
+                                if hrp then
+                                    local part = obj:FindFirstChildWhichIsA("BasePart", true)
+                                    if part then
+                                        hrp.CFrame = part.CFrame + Vector3.new(0, 3, 0)
+
+                                        local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
+
+                                        if prompt then
+                                            repeat
+                                                if not toggle2 then break end
+                                                fireproximityprompt(prompt, 1)
+                                                task.wait(0.1)
+                                            until not obj.Parent
+                                        end
+                                    end
+                                end
+                            end
                         end
                     end
                 end
-            end
+            end)
         end
     end
-end)
+})
 
 
 
@@ -1819,5 +1819,6 @@ do
         
     end
 end
+
 
 
