@@ -690,6 +690,7 @@ end
 -- ถ้า Code นี้เป็นส่วนแยก ต้องมั่นใจว่า OverviewSection2 มีอยู่จริง
 
 OverviewSection2:Dropdown({
+	Flag = "1",
 	Title = "เลือกระดับไข่",
 	Values = {"Common","Uncommon","Rare","Epic","Legendary","XMAS 25","Mythic","Secret","Exotic","Event","OG","Divine","GOD","Admin","???"},
 	Multi = true,
@@ -703,6 +704,7 @@ OverviewSection2:Dropdown({
 })
 
 EggDropdown = OverviewSection2:Dropdown({
+	Flag = "2",
 	Title = "เลือกไข่ (อัปเดตจาก Index)",
 	Values = {}, -- จะเริ่มจากว่างๆ แล้วเติมเองเมื่อ Scanner ทำงาน
 	Multi = true,
@@ -713,6 +715,7 @@ EggDropdown = OverviewSection2:Dropdown({
 })
 
 OverviewSection2:Dropdown({
+	Flag = "3",
 	Title = "เลือกบัฟ (Normal = ไข่ปกติ)",
 	Values = allBuffs,
 	Multi = true,
@@ -722,6 +725,7 @@ OverviewSection2:Dropdown({
 })
 
 OverviewSection2:Toggle({
+	Flag = "4",
 	Title = "ออโต้ซื้อไข่",
 	Callback = function(v)
 		if v then
@@ -755,7 +759,8 @@ local RF = game:GetService("ReplicatedStorage")
     :WaitForChild("RF/RequestEggSpawn")
 
 OverviewSection2:Toggle({
-    Title = "ออโต้เลื่อนไข่",
+    Flag = "4",
+	Title = "ออโต้เลื่อนไข่",
     Callback = function(v)
         running = v
         if v then
@@ -798,6 +803,7 @@ local remote = game:GetService("ReplicatedStorage")
 
 -- Dropdown เลือกหลาย Stand
 OverviewSection1:Dropdown({
+	Flag = "AutoFarmToggle5",
     Title = "เลือกช่องที่จะอัพเกรด",
     Values = (function()
         local t = {}
@@ -817,6 +823,7 @@ OverviewSection1:Dropdown({
 
 -- Toggle เปิด/ปิดออโต้
 OverviewSection1:Toggle({
+	Flag = "AutoFarmToggle6",
     Title = "ออโต้อัพเกรด",
     Value = false,
     Callback = function(v)
@@ -1026,6 +1033,7 @@ end
 
 -- ===================== TOGGLE =====================
 OverviewSection1:Toggle({
+	Flag = "AutoFarmToggle7",
     Title = "ออโต้วางไข่",
     Callback = function(v)
         running = v
@@ -1079,6 +1087,7 @@ local player = Players.LocalPlayer
 local running = false
 
 OverviewSection1:Toggle({
+	Flag = "AutoFarmToggle8",
     Title = "ออโต้เปิดไข่",
     Callback = function(v)
         running = v
@@ -1165,6 +1174,7 @@ local function getMyPlot()
 end
 
 OverviewSection1:Toggle({
+	Flag = "AutoFarmToggle9",
     Title = "ออโต้ขาย",
     Callback = function(v)
         isAutoSelling = v
@@ -1294,6 +1304,7 @@ end
 --- ส่วนการเชื่อมต่อกับ UI ของคุณ ---
 
 OverviewSection3:Input({
+	Flag = "AutoFarmToggle10",
     Title = "ใส่ตัวเลขที่ต้องการเอาออก (เช่น 500 หรือ 1K)",
     Icon = "mouse",
     Callback = function(v)
@@ -1302,7 +1313,8 @@ OverviewSection3:Input({
     end
 })
 
-OverviewSection3:Toggle({ 
+OverviewSection3:Toggle({
+	Flag = "AutoFarmToggle11", 
     Title = "เอาออกออโต้", 
     Callback = function(v) 
         isRunning = v
@@ -1333,6 +1345,7 @@ OverviewSection3:Toggle({
 
 
 OverviewSection4:Toggle({
+	Flag = "AutoFarmToggle12",
   Title = "ออโต้ซื้ออาหารทั้งหมด",
   Callback = function(v)
     if not v then
@@ -1477,6 +1490,7 @@ local function equipTool(tool)
 end
 
 OverviewSection4:Toggle({
+	Flag = "AutoFarmToggle13",
 	Title = "ให้อาหารทั้งหมด",
 	Callback = function(v)
 		running = v
@@ -1521,6 +1535,7 @@ OverviewSection4:Toggle({
 
 
 OverviewSection1:Toggle({
+	Flag = "AutoFarmToggle14",
     Title = "สุ่มบัฟทุกตัว",
     Callback = function(v)
         if not v then
@@ -1577,6 +1592,7 @@ OverviewSection1:Toggle({
 local toggle2 = false
 
 OverviewSection5:Toggle({
+	Flag = "AutoFarmToggle15",
     Title = "ออโต้เก็บของ",
     Callback = function(v)
         toggle2 = v
@@ -1653,6 +1669,10 @@ do
         Title = "ออโต้ฟาร์ม"
     })
 
+	local OverviewSection2 = OverviewTab:Section({
+        Title = "ออโต้ซื้อไข่"
+    })
+
 
 
 
@@ -1711,6 +1731,7 @@ end
 
 -- ================= TOGGLE 1 =================
 OverviewSection1:Toggle({
+	Flag = "AutoFarmToggle16",
 	Title = "ถือตัวที่อยู่ในเงื่อนไข้",
 	Callback = function(v)
 		while v do
@@ -1755,11 +1776,368 @@ OverviewSection1:Toggle({
 
 
 
+
+
+
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = workspace
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- ===================== DATA =====================
+local itemRarity = {
+	["Common"] = {},
+	["Uncommon"] = {},
+	["Rare"] = {},
+	["Epic"] = {},
+	["Legendary"] = {},
+	["XMAS 25"] = {},
+	["Mythic"] = {},
+	["Secret"] = {},
+	["Exotic"] = {},
+	["Event"] = {},
+	["OG"] = {},
+	["Divine"] = {},
+	["GOD"] = {},
+	["Admin"] = {},
+	["???"] = {}
+}
+
+-- ===================== BUFF LIST =====================
+local allBuffs = {"Normal"}
+
+do
+	local assets = ReplicatedStorage:WaitForChild("Assets", true)
+	if assets then
+		local weatherFolder = assets:WaitForChild("WeatherEventAssets", true)
+		if weatherFolder then
+			for _, obj in ipairs(weatherFolder:GetChildren()) do
+				table.insert(allBuffs, obj.Name)
+			end
+		end
+	end
 end
 
+-- ===================== FILTER CONFIG =====================
+local FILTERED_NAMES = {"Gold", "Diamond"}
+
+local function isFilteredName(name)
+	if not name then return false end
+	local lowerName = string.lower(name)
+	for _, filter in ipairs(FILTERED_NAMES) do
+		if string.find(lowerName, string.lower(filter), 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
+-- ✅ เพิ่มเงื่อนไขให้ต้องมีคำว่า Extinct เท่านั้น
+local function isExtinctName(name)
+	if not name then return false end
+	return string.find(string.lower(name), "extinct", 1, true) ~= nil
+end
+
+-- ===================== STATE =====================
+local selectedRarity = {}
+local selectedBuffs = {}
+local selectedItems = {}
+local running = false
+local EggDropdown = nil
+local childAddedConn = nil
+local eggsFolder = Workspace:WaitForChild("CoreObjects"):WaitForChild("Eggs")
+local buyDebounce = {}
+
+-- ===================== HELPER =====================
+local function findRarityKeyByName(name)
+	if not name then return nil end
+	local lower = string.lower(name):gsub("^%s*(.-)%s*$", "%1") 
+	for k, _ in pairs(itemRarity) do
+		if string.lower(k) == lower then
+			return k
+		end
+	end
+	return nil
+end
+
+local function contains(tbl, value)
+	for _, v in ipairs(tbl) do
+		if v == value then return true end
+	end
+	return false
+end
+
+-- ✅ แก้ตรงนี้ เพิ่มเฉพาะชื่อที่มี Extinct
+local function addFrameNameToRarity(frameName, rarityName)
+	if not frameName or not rarityName then return end
+	if isFilteredName(frameName) then return end
+	if not isExtinctName(frameName) then return end
+
+	local key = findRarityKeyByName(rarityName)
+	if key then
+		if not contains(itemRarity[key], frameName) then
+			table.insert(itemRarity[key], frameName)
+		end
+	end
+end
+
+local function removeFrameNameFromAllRarities(frameName)
+	for _, t in pairs(itemRarity) do
+		for i = #t, 1, -1 do
+			if t[i] == frameName then
+				table.remove(t, i)
+			end
+		end
+	end
+end
+
+local function buildEggListFromRarity()
+	local list = {}
+	for _, rarity in ipairs(selectedRarity) do
+		for _, name in ipairs(itemRarity[rarity] or {}) do
+			if not isFilteredName(name) 
+				and isExtinctName(name)
+				and not contains(list, name) then
+				table.insert(list, name)
+			end
+		end
+	end
+	return list
+end
+
+local function getTrackedItems()
+	if #selectedItems > 0 then
+		return selectedItems
+	end
+	return buildEggListFromRarity()
+end
+
+-- ===================== INDEX SCANNER =====================
+task.spawn(function()
+	local playerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
+	if not playerGui then return end
+	
+	local main = playerGui:WaitForChild("Main", 10)
+	if not main then return end
+	
+	local brainrotsFolder = main:WaitForChild("Frames")
+		:WaitForChild("Index")
+		:WaitForChild("ScrollingFrame")
+		:WaitForChild("Brainrots")
+
+	local function processIndexItem(frame)
+		if not frame:IsA("Frame") and not frame:IsA("ImageButton") and not frame:IsA("ImageLabel") then return end
+		
+		local rarityObj = frame:WaitForChild("Rarity", 5)
+		if rarityObj then
+			local function updateData()
+				local rText = ""
+				if rarityObj:IsA("TextLabel") or rarityObj:IsA("TextButton") then
+					rText = rarityObj.Text
+				elseif rarityObj:IsA("StringValue") then
+					rText = rarityObj.Value
+				end
+				
+				if rText ~= "" then
+					removeFrameNameFromAllRarities(frame.Name)
+					addFrameNameToRarity(frame.Name, rText)
+				end
+			end
+			
+			updateData()
+			
+			if rarityObj:IsA("TextLabel") or rarityObj:IsA("TextButton") then
+				rarityObj:GetPropertyChangedSignal("Text"):Connect(updateData)
+			end
+		end
+	end
+
+	for _, child in ipairs(brainrotsFolder:GetChildren()) do
+		task.spawn(function() processIndexItem(child) end)
+	end
+
+	brainrotsFolder.ChildAdded:Connect(function(child)
+		task.spawn(function() processIndexItem(child) end)
+	end)
+end)
+
+-- ===================== MATCH LOGIC =====================
+local function eggMatches(eggName)
+	if not eggName or eggName == "" then return false end
+	if not isExtinctName(eggName) then return false end
+
+	local lowerEgg = string.lower(eggName)
+	local baseMatch = false
+
+	for _, t in ipairs(getTrackedItems()) do
+		if string.find(lowerEgg, string.lower(t), 1, true) then
+			baseMatch = true
+			break
+		end
+	end
+
+	if not baseMatch then return false end
+
+	if #selectedBuffs == 0 then
+		return true
+	end
+
+	local wantNormal = contains(selectedBuffs, "Normal")
+	local hasAnyBuff = false
+
+	for _, b in ipairs(allBuffs) do
+		if b ~= "Normal" and string.find(lowerEgg, string.lower(b), 1, true) then
+			hasAnyBuff = true
+			if contains(selectedBuffs, b) then
+				return true
+			end
+		end
+	end
+
+	if wantNormal and not hasAnyBuff then
+		return true
+	end
+
+	return false
+end
+
+-- ===================== BUY LOGIC (แก้ตามที่สั่ง) =====================
+local function buyEggByName(name)
+	local now = tick()
+	if buyDebounce[name] and now - buyDebounce[name] < 0.8 then return end
+	buyDebounce[name] = now
+
+	task.spawn(function()
+		local args = {
+			name,
+			1
+		}
+
+		ReplicatedStorage
+			:WaitForChild("Shared")
+			:WaitForChild("Packages")
+			:WaitForChild("Networker")
+			:WaitForChild("RF/BuyLimitedEventEgg")
+			:InvokeServer(unpack(args))
+	end)
+end
+
+local function handleEggInstance(inst)
+	if inst and eggMatches(inst.Name) then
+		buyEggByName(inst.Name)
+	end
+end
+
+local function startWatcher()
+	if running then return end
+	running = true
+
+	for _, egg in ipairs(eggsFolder:GetChildren()) do
+		handleEggInstance(egg)
+	end
+
+	childAddedConn = eggsFolder.ChildAdded:Connect(function(child)
+		task.wait(0.05)
+		handleEggInstance(child)
+	end)
+end
+
+local function stopWatcher()
+	running = false
+	if childAddedConn then
+		childAddedConn:Disconnect()
+		childAddedConn = nil
+	end
+end
+
+-- ===================== UI =====================
+OverviewSection2:Dropdown({
+	Flag = "AutoFarmToggle17",
+	Title = "เลือกระดับไข่",
+	Values = {"Common","Uncommon","Rare","Epic","Legendary","XMAS 25","Mythic","Secret","Exotic","Event","OG","Divine","GOD","Admin","???"},
+	Multi = true,
+	Callback = function(v)
+		selectedRarity = v or {}
+		selectedItems = {}
+		if EggDropdown then
+			EggDropdown:Refresh(buildEggListFromRarity(), true)
+		end
+	end
+})
+
+EggDropdown = OverviewSection2:Dropdown({
+	Flag = "AutoFarmToggle18",
+	Title = "เลือกไข่",
+	Values = {},
+	Multi = true,
+	AllowNone = true,
+	Callback = function(v)
+		selectedItems = v or {}
+	end
+})
+
+OverviewSection2:Dropdown({
+	Flag = "AutoFarmToggle19",
+	Title = "เลือกบัฟ (Normal = ไข่ปกติ)",
+	Values = allBuffs,
+	Multi = true,
+	Callback = function(v)
+		selectedBuffs = v or {}
+	end
+})
+
+OverviewSection2:Toggle({
+	Flag = "AutoFarmToggle20",
+	Title = "ออโต้ซื้อไข่",
+	Callback = function(v)
+		if v then
+			startWatcher()
+		else
+			stopWatcher()
+		end
+	end
+})
 
 
 
+
+
+
+
+
+
+
+
+
+
+local ToggleState = false
+
+OverviewSection2:Toggle({
+	Flag = "AutoFarmToggle20",
+    Title = "ออโต้เลื่อนไข่",
+    Desc = "",
+    Value = false,
+    Callback = function(v)
+        ToggleState = v
+    end
+})
+
+task.spawn(function()
+    while true do
+        task.wait(0.01)
+        if ToggleState then
+            game:GetService("ReplicatedStorage")
+                :WaitForChild("Shared")
+                :WaitForChild("Packages")
+                :WaitForChild("Networker")
+                :WaitForChild("RF/RequestLimitedEventEggSpawn")
+                :InvokeServer()
+        end
+    end
+end)
+
+end
 
 
 
@@ -1819,7 +2197,6 @@ do
         
     end
 end
-
 
 
 
