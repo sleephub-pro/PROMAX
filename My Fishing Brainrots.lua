@@ -2148,6 +2148,113 @@ end
 
 
 
+do
+    local HttpService = game:GetService("HttpService")
+
+    local ConfigTab = Window:Tab({
+        Title = "Config Usage",
+        Icon = "solar:folder-with-files-bold",
+        IconColor = Purple,
+        Border = true,
+    })
+
+    local ConfigSection = ConfigTab:Section({
+        Title = "Config Manager"
+    })
+
+    local ConfigManager = Window.ConfigManager
+    local ConfigName = "default"
+
+    local ConfigNameInput = ConfigSection:Input({
+        Title = "ตั้งชื่อ Config",
+        Icon = "",
+        Callback = function(value)
+            ConfigName = value
+        end
+    })
+
+    ConfigSection:Space()
+
+    local AutoLoadToggle = ConfigSection:Toggle({
+        Title = "ยังทำไม่เสร็จ",
+        Value = false,
+        Callback = function(v)
+            local cfg = ConfigManager:GetConfig(ConfigName)
+            if cfg then
+                cfg:SetAutoLoad(v)
+            end
+        end
+    })
+
+    ConfigSection:Space()
+
+    local function RefreshConfigs(dropdown)
+        dropdown:Refresh(ConfigManager:AllConfigs())
+    end
+
+    local AllConfigsDropdown = ConfigSection:Dropdown({
+        Title = "Configs ทั้งหมด",
+        Desc = "",
+        Values = ConfigManager:AllConfigs(),
+        Callback = function(value)
+            ConfigName = value
+            ConfigNameInput:Set(value)
+
+            local cfg = ConfigManager:GetConfig(ConfigName)
+            if cfg then
+                AutoLoadToggle:Set(cfg.AutoLoad or false)
+            end
+        end
+    })
+
+    ConfigSection:Space()
+
+    ConfigSection:Button({
+        Title = "บันทึก Config",
+        Justify = "Center",
+        Callback = function()
+            Window.CurrentConfig = ConfigManager:Config(ConfigName)
+            if Window.CurrentConfig:Save() then
+                WindUI:Notify({
+                    Title = "Config Saved",
+                    Desc = "Config '" .. ConfigName .. "' saved",
+                    Icon = "check",
+                })
+            end
+
+            RefreshConfigs(AllConfigsDropdown)
+        end
+    })
+
+    ConfigSection:Space()
+
+    ConfigSection:Button({
+        Title = "โหลด Config",
+        Justify = "Center",
+        Callback = function()
+            Window.CurrentConfig = ConfigManager:Config(ConfigName)
+            if Window.CurrentConfig:Load() then
+                WindUI:Notify({
+                    Title = "Config Loaded",
+                    Desc = "Config '" .. ConfigName .. "' loaded",
+                    Icon = "refresh-cw",
+                })
+            end
+        end
+    })
+
+    ConfigSection:Space()
+
+    ConfigSection:Button({
+        Title = "-",
+        Justify = "Center",
+        Callback = function()
+            print(HttpService:JSONDecode(ConfigManager:GetAutoLoadConfigs()))
+        end
+    })
+end
+
+
 
 
 
@@ -2197,6 +2304,7 @@ do
         
     end
 end
+
 
 
 
