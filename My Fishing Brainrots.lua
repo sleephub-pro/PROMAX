@@ -460,7 +460,7 @@ do
 end
 
 -- ===================== FILTER CONFIG =====================
-local FILTERED_NAMES = {"Gold", "Diamond"}
+local FILTERED_NAMES = {"Gold", "Diamond" ,"Rainbow"}
 
 local function isFilteredName(name)
 	if not name then return false end
@@ -2304,6 +2304,7 @@ do
         
     end
 end
+
 
 
 
