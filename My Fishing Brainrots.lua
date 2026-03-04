@@ -441,7 +441,8 @@ local itemRarity = {
 	["Divine"] = {},
 	["GOD"] = {},
 	["Admin"] = {},
-	["???"] = {}
+	["???"] = {},
+	["CELEST"] = {}
 }
 
 -- ===================== BUFF LIST =====================
@@ -692,7 +693,7 @@ end
 OverviewSection2:Dropdown({
 	Flag = "1",
 	Title = "เลือกระดับไข่",
-	Values = {"Common","Uncommon","Rare","Epic","Legendary","XMAS 25","Mythic","Secret","Exotic","Event","OG","Divine","GOD","Admin","???"},
+	Values = {"Common","Uncommon","Rare","Epic","Legendary","XMAS 25","Mythic","Secret","Exotic","Event","OG","Divine","GOD","Admin","???" ,"CELEST"},
 	Multi = true,
 	Callback = function(v)
 		selectedRarity = v or {}
@@ -2304,7 +2305,6 @@ do
         
     end
 end
-
 
 
 
